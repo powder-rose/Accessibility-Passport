@@ -1,0 +1,10 @@
+import { hydrateRoot } from 'react-dom/client';
+import App from './App';
+import type { PageData } from './page-data';
+import './styles/globals.css';
+
+const root = document.getElementById('root');
+const element = document.getElementById('page-data');
+if (!root || !element?.textContent) throw new Error('Server page data is missing.');
+const data = JSON.parse(element.textContent) as PageData;
+hydrateRoot(root, <App {...data} />);

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { serviceFromAnswers } from '../../src/lib/service-intent';
+import { routes } from '../../src/lib/routes';
 import { getSiteContent } from '../content';
 import { classify } from '../../src/lib/classify';
 import { sha256, equal } from '../../src/lib/crypto';
@@ -92,17 +94,23 @@ export async function POST(request: Request, context: ApiContext) {
         label: q.options.find((o) => o.id === id)?.label || id,
       })),
     }));
+    const selectedService =
+      data.source === 'express' ? serviceFromAnswers(answers.documentation) : data.service;
+    const sourcePage = new URL(data.pageUrl).pathname;
     const classification = data.source === 'express' ? classify(answers) : null;
     const createdAt = new Date().toISOString();
     const payload = {
       ...data,
+      service: selectedService,
+      sourcePage,
+      initialService: sourcePage === routes.survey ? 'survey' : undefined,
       createdAt,
       sourceLabel: data.source === 'express' ? 'Экспресс-проверка ОСИ' : 'Форма обращения',
       classification,
       questions: resolved,
       serviceTitle:
-        content.services.find((s) => s.id === data.service)?.title ||
-        (data.service === 'update' ? 'Актуализация паспорта доступности' : ''),
+        content.services.find((s) => s.id === selectedService)?.title ||
+        (selectedService === 'update' ? 'Актуализация паспорта доступности' : ''),
       objectTypeLabel:
         content.quiz.questions
           .find((q) => q.id === 'objectType')

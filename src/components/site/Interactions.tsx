@@ -21,28 +21,52 @@ export default function Interactions({ metrikaId }: { metrikaId: string }) {
         if (details instanceof HTMLDetailsElement) details.open = true;
       }
       const href = a.getAttribute('href');
-      if (location.pathname === '/' && href?.startsWith('/#')) {
+      const destination = href ? new URL(href, location.href) : undefined;
+      const local =
+        destination?.origin === location.origin && destination.pathname === location.pathname;
+      const ordinaryClick =
+        !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0;
+      if (ordinaryClick && a.hasAttribute('data-quiz') && local) {
         event.preventDefault();
-        document.getElementById(href.slice(2))?.scrollIntoView({
+        if (a.dataset.quizService)
+          window.dispatchEvent(
+            new CustomEvent('select-quiz-service', { detail: a.dataset.quizService }),
+          );
+        if (a.dataset.object)
+          window.dispatchEvent(new CustomEvent('select-object', { detail: a.dataset.object }));
+        document.getElementById('quiz')?.scrollIntoView({
           behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
         });
-        history.replaceState(null, '', href.slice(1));
-      }
-      if (a.hasAttribute('data-order')) {
+        history.replaceState(null, '', '#quiz');
+        track('commercial_click', location.pathname, metrikaId);
+      } else if (ordinaryClick && a.hasAttribute('data-order') && local) {
         event.preventDefault();
         window.dispatchEvent(new CustomEvent('select-service', { detail: a.dataset.order }));
         document.getElementById('contact')?.scrollIntoView({
           behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
         });
         history.replaceState(null, '', '#contact');
-      }
-      if (a.hasAttribute('data-object') && !a.getAttribute('href')?.startsWith('/')) {
+      } else if (
+        ordinaryClick &&
+        a.hasAttribute('data-object') &&
+        local &&
+        destination?.hash === '#quiz'
+      ) {
         event.preventDefault();
         window.dispatchEvent(new CustomEvent('select-object', { detail: a.dataset.object }));
         document.getElementById('quiz')?.scrollIntoView({
           behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
         });
         history.replaceState(null, '', '#quiz');
+      } else if (ordinaryClick && local && destination?.hash) {
+        const target = document.getElementById(destination.hash.slice(1));
+        if (target) {
+          event.preventDefault();
+          target.scrollIntoView({
+            behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+          });
+          history.replaceState(null, '', destination.hash);
+        }
       }
       if (a.getAttribute('href')?.startsWith('tel:'))
         track('phone_click', location.pathname, metrikaId);

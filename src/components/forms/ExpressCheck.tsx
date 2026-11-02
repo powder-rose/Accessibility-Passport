@@ -1,20 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Answers, SiteContent } from '@/lib/content-types';
+import type { Answers, SiteContent, Section } from '@/lib/content-types';
 import { Arrow, CheckList } from '../site/primitives';
 import ContactFields, { Consent, formContacts } from './ContactFields';
 import { useLeadSubmission } from './useLeadSubmission';
+import { documentationForService, serviceFromAnswers } from '@/lib/service-intent';
 import { track } from '@/lib/analytics';
 export default function ExpressCheck({
   content,
   objectType,
+  initialService,
+  section: sectionOverride,
 }: {
   content: SiteContent;
   objectType?: string;
+  initialService?: string;
+  section?: Section;
 }) {
   const config = content.quiz;
-  const section = content.sections['5'];
+  const section = sectionOverride || content.sections['5'];
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Answers>(objectType ? { objectType: [objectType] } : {});
+  const [answers, setAnswers] = useState<Answers>(() => {
+    const documentation = documentationForService(initialService);
+    return {
+      ...(objectType ? { objectType: [objectType] } : {}),
+      ...(documentation ? { documentation: [documentation] } : {}),
+    };
+  });
   const started = useRef(false);
   const contactDraft = useRef({ name: '', phone: '', email: '', consent: false });
   const focusTarget = useRef<HTMLHeadingElement>(null);
@@ -31,8 +42,24 @@ export default function ExpressCheck({
         setStep(config.questions.findIndex((x) => x.id === 'objectType'));
       }
     };
+    const chooseService = (e: Event) => {
+      const value = documentationForService((e as CustomEvent<string>).detail);
+      if (
+        value &&
+        config.questions
+          .find((q) => q.id === 'documentation')
+          ?.options.some((option) => option.id === value)
+      ) {
+        setAnswers((old) => ({ ...old, documentation: [value] }));
+        setStep(0);
+      }
+    };
     window.addEventListener('select-object', choose);
-    return () => window.removeEventListener('select-object', choose);
+    window.addEventListener('select-quiz-service', chooseService);
+    return () => {
+      window.removeEventListener('select-object', choose);
+      window.removeEventListener('select-quiz-service', chooseService);
+    };
   }, [config.questions]);
   function begin() {
     if (!started.current) {
@@ -69,12 +96,16 @@ export default function ExpressCheck({
     <section className="section express" id="quiz">
       <div className="container express-grid">
         <div className="express-intro">
-          <p className="eyebrow">{content.sections['5'].eyebrow}</p>
+          <p className="eyebrow">{section.eyebrow}</p>
           <h2>{section.title}</h2>
           <p>{section.description}</p>
-          <h3>Что определим после проверки</h3>
-          <CheckList items={section.benefits || []} />
-          <p className="express-disclaimer">{content.sections['5'].note}</p>
+          {!!section.benefits?.length && (
+            <>
+              <h3>Что определим после проверки</h3>
+              <CheckList items={section.benefits} />
+            </>
+          )}
+          {section.note && <p className="express-disclaimer">{section.note}</p>}
         </div>
         <div className="quiz-panel" aria-live="polite">
           {submission.success ? (
@@ -169,7 +200,14 @@ export default function ExpressCheck({
                   onSubmit={async (e) => {
                     e.preventDefault();
                     const contacts = formContacts(e.currentTarget);
-                    if (await submission.submit({ ...contacts, source: 'express', answers })) {
+                    if (
+                      await submission.submit({
+                        ...contacts,
+                        source: 'express',
+                        answers,
+                        service: serviceFromAnswers(answers.documentation),
+                      })
+                    ) {
                       track('express_check_submit', location.pathname, content.site.metrikaId);
                     }
                   }}

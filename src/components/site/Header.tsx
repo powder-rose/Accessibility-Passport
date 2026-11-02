@@ -7,7 +7,13 @@ const links = [
   ['/#process', 'Как работаем'],
   ['/#pricing', 'Стоимость'],
 ];
-export default function Header({ site }: { site: SiteContent['site'] }) {
+export default function Header({
+  site,
+  contactHref = '/#contact',
+}: {
+  site: SiteContent['site'];
+  contactHref?: string;
+}) {
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -46,7 +52,7 @@ export default function Header({ site }: { site: SiteContent['site'] }) {
               {label}
             </a>
           ))}
-          <a className="mobile-contact" href="/#contact" onClick={() => setOpen(false)}>
+          <a className="mobile-contact" href={contactHref} onClick={() => setOpen(false)}>
             Обсудить объект
           </a>
         </nav>
@@ -54,7 +60,7 @@ export default function Header({ site }: { site: SiteContent['site'] }) {
           <a className="phone" href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}>
             {site.phone}
           </a>
-          <a className="header-cta" href="/#contact">
+          <a className="header-cta" href={contactHref}>
             Обсудить объект
             <Arrow />
           </a>

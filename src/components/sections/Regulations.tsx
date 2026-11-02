@@ -1,6 +1,13 @@
+import type { ReactNode } from 'react';
 import type { Section } from '@/lib/content-types';
 import { Heading, Arrow, Note } from '../site/primitives';
-export default function Regulations({ section }: { section: Section }) {
+export default function Regulations({
+  section,
+  children,
+}: {
+  section: Section;
+  children?: ReactNode;
+}) {
   return (
     <section className="section regulations" id="regulations">
       <div className="container">
@@ -30,6 +37,7 @@ export default function Regulations({ section }: { section: Section }) {
           ))}
         </div>
         <Note>{section.note}</Note>
+        {children && <div className="service-section-action">{children}</div>}
       </div>
     </section>
   );

@@ -1,3 +1,4 @@
+import { servicePaths } from '@/lib/routes';
 import type { Section, Service } from '@/lib/content-types';
 import { price } from '@/lib/content-types';
 import { Heading, OrderLink, Arrow } from '../site/primitives';
@@ -16,7 +17,15 @@ export default function Pricing({ section, services }: { section: Section; servi
                 <span>0{i + 1}</span>
                 <span>{x.label}</span>
               </div>
-              <h3>{x.title}</h3>
+              <h3>
+                {servicePaths[x.id || ''] ? (
+                  <a className="service-title-link" href={servicePaths[x.id || '']}>
+                    {x.title}
+                  </a>
+                ) : (
+                  x.title
+                )}
+              </h3>
               <p>{x.description}</p>
               <div className="price-card__footer">
                 <div className="price-value">{price(x)}</div>

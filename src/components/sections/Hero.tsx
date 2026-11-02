@@ -1,5 +1,6 @@
 import type { SiteContent } from '@/lib/content-types';
 import { price } from '@/lib/content-types';
+import ExpertPortrait from '../site/ExpertPortrait';
 import { Arrow } from '../site/primitives';
 export default function Hero({ content }: { content: SiteContent }) {
   const s = content.sections['1'];
@@ -40,25 +41,7 @@ export default function Hero({ content }: { content: SiteContent }) {
             </a>
           </div>
         </div>
-        <figure className="hero-portrait">
-          <div className="portrait-media">
-            <span className="portrait-label">БОЙКОВГРУПП / ОСИ</span>
-            <div className="portrait-rule" aria-hidden="true" />
-            <img
-              src={content.site.heroImage}
-              width="800"
-              height="1204"
-              alt="Николай Бойков, руководитель БОЙКОВГРУПП"
-              fetchPriority="high"
-              decoding="async"
-            />
-          </div>
-          <figcaption>
-            <span className="portrait-name">Николай Бойков</span>
-            <span>Руководитель БОЙКОВГРУПП</span>
-            <span>Эксперт по комплексной безопасности</span>
-          </figcaption>
-        </figure>
+        <ExpertPortrait site={content.site} />
       </div>
       <div className="container hero-bottom">
         <span>Паспорт доступности ОСИ</span>

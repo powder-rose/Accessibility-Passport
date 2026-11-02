@@ -1,5 +1,6 @@
 import type { PageData } from '../src/page-data';
-import type { SiteContent } from '../src/lib/content-types';
+import { routes } from '../src/lib/routes';
+import type { Service, Section, SiteContent } from '../src/lib/content-types';
 
 export function escapeHtml(value: string) {
   const replacements: Record<string, string> = {
@@ -17,7 +18,10 @@ export function scriptJson(value: unknown) {
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
 }
-export function structuredData(content: SiteContent) {
+export function structuredData(
+  content: SiteContent,
+  options: { services?: Service[]; faq?: Section; breadcrumb?: string; path?: string } = {},
+) {
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -30,8 +34,9 @@ export function structuredData(content: SiteContent) {
         telephone: content.site.phone,
         url: content.site.domain,
       },
-      ...content.services.map((service) => ({
+      ...(options.services || content.services).map((service) => ({
         '@type': 'Service',
+        ...(options.path ? { url: new URL(options.path, content.site.domain).href } : {}),
         name: service.title,
         description: service.description,
         provider: { '@id': content.site.domain + '/#organization' },
@@ -42,9 +47,30 @@ export function structuredData(content: SiteContent) {
           priceCurrency: 'RUB',
         },
       })),
+      ...(options.breadcrumb
+        ? [
+            {
+              '@type': 'BreadcrumbList',
+              itemListElement: [
+                {
+                  '@type': 'ListItem',
+                  position: 1,
+                  name: 'Главная',
+                  item: content.site.domain + '/',
+                },
+                {
+                  '@type': 'ListItem',
+                  position: 2,
+                  name: options.breadcrumb,
+                  item: new URL(options.path!, content.site.domain).href,
+                },
+              ],
+            },
+          ]
+        : []),
       {
         '@type': 'FAQPage',
-        mainEntity: content.sections['16'].items?.map((item) => ({
+        mainEntity: (options.faq || content.sections['16']).items?.map((item) => ({
           '@type': 'Question',
           name: item.title,
           acceptedAnswer: { '@type': 'Answer', text: item.text },
@@ -55,28 +81,41 @@ export function structuredData(content: SiteContent) {
 }
 export function buildHead(data: PageData, pathname: string) {
   const { content, route } = data;
-  const title =
-    route === 'home'
-      ? content.seo.title
-      : route === 'legal'
-        ? data.document!.title
-        : route === 'admin'
-          ? 'Заявки — БОЙКОВГРУПП'
-          : 'Страница не найдена';
-  const robots = route === 'home' ? 'index, follow' : 'noindex, nofollow';
+  const commercial = route === 'home' || route === 'survey';
+  const seo = route === 'survey' ? data.servicePage!.seo : content.seo;
+  const canonicalUrl =
+    route === 'survey'
+      ? new URL(data.servicePage!.path, content.site.domain).href
+      : content.seo.canonical;
+  const schemaOptions =
+    route === 'survey'
+      ? {
+          services: content.services.filter((service) => service.id === 'survey'),
+          faq: data.servicePage!.sections['16'],
+          breadcrumb: data.servicePage!.breadcrumb,
+          path: data.servicePage!.path,
+        }
+      : undefined;
+  const title = commercial
+    ? seo.title
+    : route === 'legal'
+      ? data.document!.title
+      : route === 'admin'
+        ? 'Заявки — БОЙКОВГРУПП'
+        : 'Страница не найдена';
+  const robots = commercial ? 'index, follow' : 'noindex, nofollow';
   const head = [
     '<title>' + escapeHtml(title) + '</title>',
     '<meta name="robots" content="' + robots + '">',
   ];
-  if (route === 'home' || route === 'legal') {
-    const canonical =
-      route === 'home' ? content.seo.canonical : new URL(pathname, content.site.domain).href;
+  if (commercial || route === 'legal') {
+    const canonical = commercial ? canonicalUrl : new URL(pathname, content.site.domain).href;
     head.push('<link rel="canonical" href="' + escapeHtml(canonical) + '">');
   }
-  if (route === 'home') {
-    const description = escapeHtml(content.seo.description);
+  if (commercial) {
+    const description = escapeHtml(seo.description);
     const escapedTitle = escapeHtml(title);
-    const canonical = escapeHtml(content.seo.canonical);
+    const canonical = escapeHtml(canonicalUrl);
     const image = escapeHtml(new URL('/images/og-accessibility.webp', content.site.domain).href);
     head.push(
       '<meta name="description" content="' + description + '">',
@@ -92,7 +131,9 @@ export function buildHead(data: PageData, pathname: string) {
       '<meta name="twitter:title" content="' + escapedTitle + '">',
       '<meta name="twitter:description" content="' + description + '">',
       '<meta name="twitter:image" content="' + image + '">',
-      '<script type="application/ld+json">' + scriptJson(structuredData(content)) + '</script>',
+      '<script type="application/ld+json">' +
+        scriptJson(structuredData(content, schemaOptions)) +
+        '</script>',
     );
   }
   return head.join('\n');
@@ -108,10 +149,19 @@ export function robotsText(content: SiteContent) {
   );
 }
 export function sitemapXml(content: SiteContent) {
-  const location = escapeHtml(new URL('/', content.site.domain).href);
+  const entries = Object.values(routes)
+    .map(
+      (path) =>
+        '<url><loc>' +
+        escapeHtml(new URL(path, content.site.domain).href) +
+        '</loc><changefreq>monthly</changefreq><priority>' +
+        (path === routes.home ? '1.0' : '0.8') +
+        '</priority></url>',
+    )
+    .join('');
   return (
-    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>' +
-    location +
-    '</loc><changefreq>monthly</changefreq><priority>1.0</priority></url></urlset>'
+    '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+    entries +
+    '</urlset>'
   );
 }

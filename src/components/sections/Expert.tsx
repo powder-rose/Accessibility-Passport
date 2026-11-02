@@ -1,6 +1,14 @@
 import type { Section, SiteContent } from '@/lib/content-types';
 import { OrderLink } from '../site/primitives';
-export default function Expert({ section, site }: { section: Section; site: SiteContent['site'] }) {
+export default function Expert({
+  section,
+  site,
+  service,
+}: {
+  section: Section;
+  site: SiteContent['site'];
+  service?: string;
+}) {
   return (
     <section className="section expert" id="expert">
       <div className="container expert-grid">
@@ -33,7 +41,7 @@ export default function Expert({ section, site }: { section: Section; site: Site
               </li>
             ))}
           </ol>
-          <OrderLink>Обсудить объект со специалистом</OrderLink>
+          <OrderLink service={service}>Обсудить объект со специалистом</OrderLink>
         </div>
       </div>
     </section>

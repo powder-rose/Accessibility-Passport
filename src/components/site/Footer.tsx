@@ -1,5 +1,11 @@
 import type { SiteContent } from '@/lib/content-types';
-export default function Footer({ site }: { site: SiteContent['site'] }) {
+export default function Footer({
+  site,
+  topHref = '/#top',
+}: {
+  site: SiteContent['site'];
+  topHref?: string;
+}) {
   return (
     <footer className="site-footer">
       <div className="container">
@@ -31,7 +37,7 @@ export default function Footer({ site }: { site: SiteContent['site'] }) {
             <a href="/privacy/">Политика конфиденциальности</a>
             <a href="/personal-data/">Согласие на обработку персональных данных</a>
           </div>
-          <a className="back-top" href="/#top" aria-label="В начало страницы">
+          <a className="back-top" href={topHref} aria-label="В начало страницы">
             ↑
           </a>
         </div>

@@ -1,3 +1,4 @@
+import { servicePaths } from '@/lib/routes';
 import type { Section, Service } from '@/lib/content-types';
 import { price } from '@/lib/content-types';
 import { Heading, CheckList, OrderLink, Note } from '../site/primitives';
@@ -24,7 +25,15 @@ export default function Documents({
                 <span />
                 <span />
               </div>
-              <h3>{x.title}</h3>
+              <h3>
+                {servicePaths[x.service || ''] ? (
+                  <a className="service-title-link" href={servicePaths[x.service || '']}>
+                    {x.title}
+                  </a>
+                ) : (
+                  x.title
+                )}
+              </h3>
               <CheckList items={x.points || []} />
               <div className="document-card__bottom">
                 <span>{price(services.find((s) => s.id === x.service)!)}</span>

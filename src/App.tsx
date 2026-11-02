@@ -1,4 +1,5 @@
 import type { PageData } from './page-data';
+import SurveyPage from './pages/SurveyPage';
 import HomePage from './pages/HomePage';
 import LegalPage from './pages/LegalPage';
 import AdminConsole from './components/admin/AdminConsole';
@@ -10,6 +11,8 @@ export default function App(data: PageData) {
       return (
         <HomePage content={data.content} objectType={data.objectType} service={data.service} />
       );
+    case 'survey':
+      return <SurveyPage {...data} />;
     case 'legal':
       return <LegalPage content={data.content} document={data.document!} />;
     case 'admin':

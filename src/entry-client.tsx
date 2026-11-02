@@ -2,6 +2,7 @@ import { hydrateRoot } from 'react-dom/client';
 import App from './App';
 import type { PageData } from './page-data';
 import './styles/globals.css';
+import './styles/service-page.css';
 
 const root = document.getElementById('root');
 const element = document.getElementById('page-data');

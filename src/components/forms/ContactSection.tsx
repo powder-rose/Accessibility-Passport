@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { SiteContent } from '@/lib/content-types';
+import type { Section, SiteContent } from '@/lib/content-types';
+import { price } from '@/lib/content-types';
 import { Arrow, CheckList } from '../site/primitives';
 import ContactFields, { Consent, formContacts } from './ContactFields';
 import { useLeadSubmission } from './useLeadSubmission';
@@ -7,13 +8,20 @@ import { track } from '@/lib/analytics';
 export default function ContactSection({
   content,
   initialService = '',
+  section: sectionOverride,
+  showServicePrice = false,
+  commentLabel = 'Объект или задача',
 }: {
   content: SiteContent;
   initialService?: string;
+  section?: Section;
+  showServicePrice?: boolean;
+  commentLabel?: string;
 }) {
-  const section = content.sections['17'];
+  const section = sectionOverride || content.sections['17'];
   const [service, setService] = useState(initialService);
   const submission = useLeadSubmission();
+  const selectedService = content.services.find((s) => s.id === service);
   const objects = content.quiz.questions.find((q) => q.id === 'objectType')?.options || [];
   useEffect(() => {
     const choose = (e: Event) => setService((e as CustomEvent<string>).detail);
@@ -72,8 +80,9 @@ export default function ContactSection({
                 <div className="selected-service">
                   <span>Выбранная услуга</span>
                   <p>
-                    {content.services.find((s) => s.id === service)?.title ||
+                    {selectedService?.title ||
                       (service === 'update' ? 'Актуализация паспорта доступности' : service)}
+                    {showServicePrice && selectedService && <> — {price(selectedService)}</>}
                   </p>
                   <button
                     type="button"
@@ -96,7 +105,7 @@ export default function ContactSection({
                 </select>
               </label>
               <label htmlFor="contact-comment">
-                Объект или задача
+                {commentLabel}
                 <textarea name="comment" id="contact-comment" rows={3} maxLength={3000} />
               </label>
               <Consent prefix="contact" />

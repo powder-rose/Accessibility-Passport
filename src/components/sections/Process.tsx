@@ -10,7 +10,10 @@ export default function Process({
   compact?: boolean;
 }) {
   return (
-    <section className={'section process' + (compact ? ' process--compact' : '')} id="process">
+    <section
+      className={'section process' + (compact ? ' process--compact' : '')}
+      id="process"
+    >
       <div className="container">
         <Heading section={section} />
         <ol className="process-list">

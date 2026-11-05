@@ -30,6 +30,7 @@ export async function validateAttachment(
       413,
     );
   if (
+    // eslint-disable-next-line no-control-regex -- Reject ASCII control characters in untrusted filenames.
     /[\\/:<>\x00-\x1f\x7f]/.test(file.name) ||
     file.name.length > 160 ||
     file.name.startsWith('.') ||

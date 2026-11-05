@@ -22,7 +22,9 @@ export default function DocumentOverview({
                 <br />
                 доступности
               </p>
-              <p className="document-sheet__subtitle">объекта социальной инфраструктуры</p>
+              <p className="document-sheet__subtitle">
+                объекта социальной инфраструктуры
+              </p>
               <div className="document-lines" aria-hidden="true">
                 <i />
                 <i />

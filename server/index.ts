@@ -5,7 +5,8 @@ const config = readConfig();
 const application = await createApplication(config);
 const server = application.app.listen(config.port, config.host, () => {
   const address = server.address();
-  const port = typeof address === 'object' && address ? address.port : config.port;
+  const port =
+    typeof address === 'object' && address ? address.port : config.port;
   console.log('Server ready at http://' + config.host + ':' + port);
 });
 server.on('error', (error) => {

@@ -1,6 +1,11 @@
 export async function sha256(value: string) {
-  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+  const bytes = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(bytes), (b) =>
+    b.toString(16).padStart(2, '0'),
+  ).join('');
 }
 export function equal(a: string, b: string) {
   if (a.length !== b.length) return false;
@@ -16,6 +21,12 @@ export async function sign(value: string, secret: string) {
     false,
     ['sign'],
   );
-  const bytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+  const bytes = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(value),
+  );
+  return Array.from(new Uint8Array(bytes), (b) =>
+    b.toString(16).padStart(2, '0'),
+  ).join('');
 }

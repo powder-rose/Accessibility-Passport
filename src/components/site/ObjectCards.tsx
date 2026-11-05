@@ -15,7 +15,13 @@ export default function ObjectCards({
       {items.map((x, i) => (
         <article key={x.title} className="object-card reveal">
           <div className="object-image">
-            <img src={x.image} alt={x.title} loading="lazy" width="360" height="240" />
+            <img
+              src={x.image}
+              alt={x.title}
+              loading="lazy"
+              width="360"
+              height="240"
+            />
             <span className="object-number">0{i + 1}</span>
           </div>
           <div className="object-copy">

@@ -46,7 +46,8 @@ export default function Hero({ content }: { content: SiteContent }) {
       <div className="container hero-bottom">
         <span>Паспорт доступности ОСИ</span>
         <a href="#experience">
-          От проверки объекта до готового комплекта документации<span aria-hidden="true">↓</span>
+          От проверки объекта до готового комплекта документации
+          <span aria-hidden="true">↓</span>
         </a>
       </div>
     </section>

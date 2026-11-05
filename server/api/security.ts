@@ -12,10 +12,15 @@ export async function rateLimit(
   seconds: number,
 ) {
   const now = Math.floor(Date.now() / 1000);
-  const key = await sha256(bucket + ':' + context.clientIp + ':' + Math.floor(now / seconds));
+  const key = await sha256(
+    bucket + ':' + context.clientIp + ':' + Math.floor(now / seconds),
+  );
   return context.store.consumeRateLimit(key, limit, now + seconds, now);
 }
-export async function adminAuthenticated(request: Request, { config }: ApiContext) {
+export async function adminAuthenticated(
+  request: Request,
+  { config }: ApiContext,
+) {
   if (!config.adminSessionSecret) return false;
   const token = request.headers
     .get('cookie')
@@ -37,8 +42,17 @@ export async function adminAuthenticated(request: Request, { config }: ApiContex
 }
 export function sessionCookie(request: Request, value: string, maxAge: number) {
   const secure = new URL(request.url).protocol === 'https:' ? '; Secure' : '';
-  return 'osi_admin=' + value + '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' + maxAge + secure;
+  return (
+    'osi_admin=' +
+    value +
+    '; Path=/; HttpOnly; SameSite=Strict; Max-Age=' +
+    maxAge +
+    secure
+  );
 }
 export function jsonError(message: string, status = 400) {
-  return Response.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
+  return Response.json(
+    { error: message },
+    { status, headers: { 'Cache-Control': 'no-store' } },
+  );
 }

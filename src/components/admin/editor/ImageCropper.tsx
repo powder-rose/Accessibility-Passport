@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { uploadImage } from '../articles/api';
 import type { ArticleImage } from '@/features/articles/model';
 
@@ -48,7 +48,7 @@ export default function ImageCropper({
       bitmap.onerror = null;
     };
   }, [source]);
-  function metrics() {
+  const metrics = useCallback(() => {
     const bitmap = image.current!;
     const scale =
       Math.max(width / bitmap.naturalWidth, height / bitmap.naturalHeight) *
@@ -58,7 +58,7 @@ export default function ImageCropper({
       w: bitmap.naturalWidth * scale,
       h: bitmap.naturalHeight * scale,
     };
-  }
+  }, [zoom]);
   useEffect(() => {
     if (!ready || !canvas.current) return;
     const context = canvas.current.getContext('2d');
@@ -72,7 +72,7 @@ export default function ImageCropper({
       w,
       h,
     );
-  }, [ready, zoom, position]);
+  }, [ready, metrics, position]);
   async function apply() {
     if (!canvas.current || !ready) return;
     setPending(true);

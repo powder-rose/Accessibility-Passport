@@ -23,7 +23,9 @@ export default function Experience({ section }: { section: Section }) {
             <li className={i === 4 ? 'additional' : ''} key={x}>
               <span className="strip-dot" />
               {x}
-              {i === 4 && <span className="optional-label">При наличии процедуры</span>}
+              {i === 4 && (
+                <span className="optional-label">При наличии процедуры</span>
+              )}
             </li>
           ))}
         </ol>

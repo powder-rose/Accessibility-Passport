@@ -38,7 +38,11 @@ export default function HomePage({
         <Hero content={c} />
         <Experience section={s['2']} />
         <DocumentOverview section={s['3']} anatomy={s['4']} />
-        <ExpressCheck content={c} objectType={objectType} initialService={service} />
+        <ExpressCheck
+          content={c}
+          objectType={objectType}
+          initialService={service}
+        />
         <Documents section={s['6']} services={c.services} />
         <Objects section={s['7']} />
         <Regulations section={s['8']} />

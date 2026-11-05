@@ -12,7 +12,13 @@ export function Arrow({ diagonal = true }: { diagonal?: boolean }) {
     </svg>
   );
 }
-export function Heading({ section, children }: { section: Section; children?: ReactNode }) {
+export function Heading({
+  section,
+  children,
+}: {
+  section: Section;
+  children?: ReactNode;
+}) {
   return (
     <div className="section-heading">
       <div>
@@ -52,7 +58,9 @@ export function OrderLink({
   return (
     <a
       className={className}
-      href={service ? `?service=${encodeURIComponent(service)}#contact` : '#contact'}
+      href={
+        service ? `?service=${encodeURIComponent(service)}#contact` : '#contact'
+      }
       data-order={service || ''}
     >
       {children}
@@ -60,7 +68,13 @@ export function OrderLink({
     </a>
   );
 }
-export function Note({ title, children }: { title?: string; children: ReactNode }) {
+export function Note({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
   return (
     <aside className="note">
       {title && <h3>{title}</h3>}

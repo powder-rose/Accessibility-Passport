@@ -1,4 +1,9 @@
-export type ContactDraft = { name: string; phone: string; email: string; consent: boolean };
+export type ContactDraft = {
+  name: string;
+  phone: string;
+  email: string;
+  consent: boolean;
+};
 export default function ContactFields({
   prefix,
   defaults,

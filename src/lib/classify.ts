@@ -17,7 +17,9 @@ export function classify(answers: Answers) {
               : 'Определение необходимого состава документации.';
   const clarification =
     (previous === 'update' &&
-      intent.some((x) => ['passport', 'survey', 'questionnaire', 'documents'].includes(x))) ||
+      intent.some((x) =>
+        ['passport', 'survey', 'questionnaire', 'documents'].includes(x),
+      )) ||
     (previous === 'first' && intent.includes('update'));
   return {
     type: selected,

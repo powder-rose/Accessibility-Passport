@@ -29,7 +29,9 @@ export default function QuestionnaireHero({
             <div className="questionnaire-hero__offer">
               <div className="questionnaire-hero__price">
                 <span>{hero.priceLabel}</span>
-                <p className="questionnaire-hero__price-value">{price(service)}</p>
+                <p className="questionnaire-hero__price-value">
+                  {price(service)}
+                </p>
               </div>
               <p className="questionnaire-hero__price-note">{hero.priceNote}</p>
             </div>

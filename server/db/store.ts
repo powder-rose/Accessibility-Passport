@@ -137,8 +137,7 @@ export class Store {
         'SELECT name,content_type AS contentType,bytes FROM lead_attachments WHERE id=?',
       )
       .get(id) as
-      | { name: string; contentType: string; bytes: Uint8Array }
-      | undefined;
+      { name: string; contentType: string; bytes: Uint8Array } | undefined;
   }
   listLeads() {
     const rows = this.db

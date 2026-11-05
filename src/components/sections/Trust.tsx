@@ -1,6 +1,12 @@
 import type { Section, SiteContent } from '@/lib/content-types';
 import { Heading, Arrow } from '../site/primitives';
-export default function Trust({ section, site }: { section: Section; site: SiteContent['site'] }) {
+export default function Trust({
+  section,
+  site,
+}: {
+  section: Section;
+  site: SiteContent['site'];
+}) {
   return (
     <section className="section trust" id="trust">
       <div className="container">

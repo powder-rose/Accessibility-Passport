@@ -5,4 +5,7 @@ export interface ApiContext {
   config: Config;
   clientIp: string;
 }
-export type ApiHandler = (request: Request, context: ApiContext) => Promise<Response>;
+export type ApiHandler = (
+  request: Request,
+  context: ApiContext,
+) => Promise<Response>;

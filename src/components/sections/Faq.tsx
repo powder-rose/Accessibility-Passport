@@ -14,7 +14,9 @@ export default function Faq({ section }: { section: Section }) {
           {section.items?.map((x, i) => (
             <details className="faq-item" key={x.title}>
               <summary>
-                <span className="faq-index">{String(i + 1).padStart(2, '0')}</span>
+                <span className="faq-index">
+                  {String(i + 1).padStart(2, '0')}
+                </span>
                 <h3>{x.title}</h3>
                 <span className="faq-plus" aria-hidden="true">
                   +

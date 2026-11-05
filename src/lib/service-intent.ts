@@ -6,8 +6,12 @@ const documentationServices: Readonly<Record<string, string>> = {
   update: 'update',
 };
 export function serviceFromAnswers(documentation: string[] = []) {
-  return documentation.length === 1 ? documentationServices[documentation[0]] : undefined;
+  return documentation.length === 1
+    ? documentationServices[documentation[0]]
+    : undefined;
 }
 export function documentationForService(service?: string) {
-  return Object.entries(documentationServices).find(([, id]) => id === service)?.[0];
+  return Object.entries(documentationServices).find(
+    ([, id]) => id === service,
+  )?.[0];
 }

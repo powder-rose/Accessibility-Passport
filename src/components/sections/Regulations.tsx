@@ -12,7 +12,11 @@ export default function Regulations({
     <section className="section regulations" id="regulations">
       <div className="container">
         <Heading section={section} />
-        <div className="regulation-table" role="table" aria-label="Нормативная структура">
+        <div
+          className="regulation-table"
+          role="table"
+          aria-label="Нормативная структура"
+        >
           <div role="row" className="regulation-table__head">
             <span role="columnheader">Нормативный документ</span>
             <span role="columnheader">Что регулирует</span>

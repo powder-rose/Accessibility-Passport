@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+data/
+.vite/
+.sites-runtime/
+.update-backups/
+.env
+.env.*
+package-lock.json
+public/__qa*
+*.patch
+*.zip

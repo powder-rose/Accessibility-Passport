@@ -16,7 +16,8 @@ test(
       readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
     );
     const command = packageJson.scripts.dev.split(' ');
-    const executable = command.shift() === 'node' ? process.execPath : undefined;
+    const executable =
+      command.shift() === 'node' ? process.execPath : undefined;
     assert.ok(executable, 'The development command must start with Node.js.');
     let output = '';
     const child = spawn(executable, [...command, '--port', '0'], {
@@ -40,9 +41,12 @@ test(
     try {
       let origin = '';
       for (let attempt = 0; attempt < 100; attempt++) {
-        origin = output.match(/Server ready at (http:\/\/127\.0\.0\.1:\d+)/)?.[1] || '';
+        origin =
+          output.match(/Server ready at (http:\/\/127\.0\.0\.1:\d+)/)?.[1] ||
+          '';
         if (origin) break;
-        if (child.exitCode !== null) throw new Error('Dev server exited: ' + output);
+        if (child.exitCode !== null)
+          throw new Error('Dev server exited: ' + output);
         await delay(100);
       }
       assert.ok(origin, 'Dev server did not become ready: ' + output);
@@ -73,9 +77,14 @@ test(
       assert.equal(child.exitCode, null, output);
       assert.equal((output.match(/Server ready at/g) || []).length, 1, output);
       assert.doesNotMatch(output, /Restarting/);
-      assert.equal((await fetch(origin, { signal: AbortSignal.timeout(6000) })).status, 200);
+      assert.equal(
+        (await fetch(origin, { signal: AbortSignal.timeout(6000) })).status,
+        200,
+      );
     } finally {
-      const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      const exited = new Promise<void>((resolve) =>
+        child.once('exit', () => resolve()),
+      );
       if (child.exitCode === null) {
         child.kill('SIGTERM');
         const stopped = await Promise.race([

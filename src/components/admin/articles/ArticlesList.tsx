@@ -95,7 +95,10 @@ export default function ArticlesList() {
           <p className="eyebrow">Блог Николая Бойкова</p>
           <h1>Статьи</h1>
         </div>
-        <a className="button button-contrast" href="/admin/articles/new/?fresh=1">
+        <a
+          className="button button-contrast"
+          href="/admin/articles/new/?fresh=1"
+        >
           Создать статью ↗
         </a>
       </div>

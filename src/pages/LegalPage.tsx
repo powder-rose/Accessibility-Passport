@@ -17,7 +17,11 @@ export default function LegalPage({
         <p className="eyebrow">{content.site.company}</p>
         <h1>{document.title}</h1>
         {document.lines.map((line, i) =>
-          /^\d+\.\s/.test(line) ? <h2 key={i}>{line}</h2> : <p key={i}>{line}</p>,
+          /^\d+\.\s/.test(line) ? (
+            <h2 key={i}>{line}</h2>
+          ) : (
+            <p key={i}>{line}</p>
+          ),
         )}
         <a href="/" className="text-link">
           На главную ↗

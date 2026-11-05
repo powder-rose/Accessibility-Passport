@@ -103,8 +103,13 @@ test('article administration requires authentication and same-origin writes; inv
     401,
   );
   assert.equal((await request('/api/admin/articles')).status, 401);
-  assert.equal((await request('/api/admin/session')).status,401);
-  assert.deepEqual(await (await request('/api/admin/session',{headers:{Cookie:cookie}})).json(),{authenticated:true});
+  assert.equal((await request('/api/admin/session')).status, 401);
+  assert.deepEqual(
+    await (
+      await request('/api/admin/session', { headers: { Cookie: cookie } })
+    ).json(),
+    { authenticated: true },
+  );
   assert.equal(
     (
       await json(
@@ -311,13 +316,23 @@ test('article image uploads validate authentication, origin, type, size and real
   ).metadata();
   assert.equal(metadata.format, 'webp');
   assert.equal(metadata.exif, undefined);
-  for(const format of ['jpeg','webp'] as const) {
-    const source=await sharp(png).withExif({IFD0:{Artist:'TEST_ONLY'}})[format]().toBuffer();
-    const encoded=await upload(source,'cover.'+format,'image/'+format);
-    assert.equal(encoded.status,200,await encoded.clone().text());
-    const uploaded=await encoded.json();
-    const decoded=await sharp(Buffer.from(await (await request(uploaded.url,{headers:{Cookie:cookie}})).arrayBuffer())).metadata();
-    assert.equal(decoded.format,'webp');assert.equal(decoded.exif,undefined);
+  for (const format of ['jpeg', 'webp'] as const) {
+    const source = await sharp(png)
+      .withExif({ IFD0: { Artist: 'TEST_ONLY' } })
+      [format]()
+      .toBuffer();
+    const encoded = await upload(source, 'cover.' + format, 'image/' + format);
+    assert.equal(encoded.status, 200, await encoded.clone().text());
+    const uploaded = await encoded.json();
+    const decoded = await sharp(
+      Buffer.from(
+        await (
+          await request(uploaded.url, { headers: { Cookie: cookie } })
+        ).arrayBuffer(),
+      ),
+    ).metadata();
+    assert.equal(decoded.format, 'webp');
+    assert.equal(decoded.exif, undefined);
   }
 });
 
@@ -532,13 +547,25 @@ test('migration from schema 2 preserves leads, attachments and limits while addi
       maxTotalBytes: 2097152,
     }),
   );
-  const oldFile=randomUUID();
-  db.prepare('INSERT INTO lead_attachments VALUES (?,?,?,?,?,?,?,?)').run(oldFile,'legacy','passport','old.pdf',4,'application/pdf','test',Buffer.from('test'));
+  const oldFile = randomUUID();
+  db.prepare('INSERT INTO lead_attachments VALUES (?,?,?,?,?,?,?,?)').run(
+    oldFile,
+    'legacy',
+    'passport',
+    'old.pdf',
+    4,
+    'application/pdf',
+    'test',
+    Buffer.from('test'),
+  );
   db.close();
   const store = new Store(path);
   assert.equal(store.listLeads()[0].payload.name, 'Старая заявка');
   assert.equal(store.getAttachmentLimits().maxFiles, 2);
-  assert.equal(Buffer.from(store.getAttachment(oldFile)!.bytes).toString(),'test');
+  assert.equal(
+    Buffer.from(store.getAttachment(oldFile)!.bytes).toString(),
+    'test',
+  );
   assert.equal(store.articles.list().length, 0);
   store.close();
   const migrated = new DatabaseSync(path);

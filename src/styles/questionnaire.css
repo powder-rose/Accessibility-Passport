@@ -1,0 +1,91 @@
+@import './questionnaire/hero.css';
+@import './questionnaire/overview.css';
+@import './questionnaire/work.css';
+@import './questionnaire/data.css';
+
+.questionnaire-structure {
+  background: var(--surface);
+}
+.questionnaire-structure__grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+}
+.questionnaire-structure__card {
+  padding: 38px;
+  background: white;
+  transition: box-shadow var(--duration) var(--ease);
+}
+.questionnaire-structure__card:hover {
+  box-shadow: 0 12px 30px rgb(34 35 38 / 0.06);
+}
+.questionnaire-structure__card:first-child {
+  background: var(--dark);
+  color: white;
+}
+.questionnaire-structure__card:first-child .service-glyph {
+  color: var(--highlight);
+}
+.questionnaire-structure__card:nth-child(3) {
+  background: var(--surface-deep);
+}
+.questionnaire-structure__mark {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 38px;
+}
+.questionnaire-structure__mark > span {
+  color: var(--accent-ink);
+  font-size: 42px;
+  font-weight: 450;
+  line-height: 1;
+  letter-spacing: -0.055em;
+}
+.questionnaire-structure__card:first-child
+  .questionnaire-structure__mark
+  > span {
+  color: var(--accent-on-dark);
+}
+.questionnaire-structure__card h3 {
+  font-size: 31px;
+  line-height: 1.25;
+  max-width: 440px;
+}
+.questionnaire-structure__card p {
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 1.85;
+  max-width: 490px;
+}
+.questionnaire-structure__card:first-child p {
+  color: var(--on-dark);
+}
+@media (max-width: 950px) {
+  .questionnaire-structure__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+  .questionnaire-structure__card {
+    padding: 28px;
+  }
+  .questionnaire-structure__card h3 {
+    font-size: 26px;
+  }
+  .questionnaire-structure__card p {
+    font-size: 13px;
+  }
+}
+@media (max-width: 720px) {
+  .questionnaire-structure__grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .questionnaire-structure__mark {
+    margin-bottom: 30px;
+  }
+  .questionnaire-structure__card h3 {
+    font-size: 29px;
+  }
+}

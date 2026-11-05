@@ -32,7 +32,7 @@ export default function Hero({ content }: { content: SiteContent }) {
             </ul>
           </div>
           <div className="hero-actions">
-            <a className="button button-teal" href="#pricing">
+            <a className="button button-contrast" href="#pricing">
               Рассчитать стоимость
               <Arrow />
             </a>

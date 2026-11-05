@@ -1,8 +1,31 @@
-export const routes = { home: '/', survey: '/akt-obsledovaniya-osi/' } as const;
-export const servicePaths: Readonly<Record<string, string>> = { survey: routes.survey };
+export const routes = {
+  home: '/',
+  survey: '/akt-obsledovaniya-osi/',
+  questionnaire: '/anketa-osi/',
+  update: '/aktualizaciya-pasporta-dostupnosti/',
+} as const;
+export const servicePaths = {
+  survey: routes.survey,
+  questionnaire: routes.questionnaire,
+  update: routes.update,
+} as const satisfies Readonly<Record<string, string>>;
+export type DocumentServiceId = keyof typeof servicePaths;
+export function serviceForPath(path: string): DocumentServiceId | undefined {
+  return (Object.keys(servicePaths) as DocumentServiceId[]).find(
+    (service) => servicePaths[service] === path,
+  );
+}
+export function serviceHref(service?: string) {
+  return service && Object.hasOwn(servicePaths, service)
+    ? servicePaths[service as DocumentServiceId]
+    : undefined;
+}
 const publishedPaths = new Set<string>([
   routes.home,
   routes.survey,
+  routes.questionnaire,
+  routes.update,
+  '/blog/',
   '/privacy/',
   '/personal-data/',
 ]);

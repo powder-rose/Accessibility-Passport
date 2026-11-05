@@ -3,14 +3,19 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { classify } from '../src/lib/classify.ts';
 import { contentSchema } from '../src/lib/content-schema.ts';
-const content = JSON.parse(readFileSync(new URL('../src/content/home.json', import.meta.url)));
+const content = JSON.parse(
+  readFileSync(new URL('../src/content/home.json', import.meta.url)),
+);
 test('approved content validates and has all 17 sections', () => {
   assert.equal(contentSchema.safeParse(content).success, true);
   assert.equal(Object.keys(content.sections).length, 17);
   assert.equal(content.sections['16'].items.length, 13);
 });
 test('document intent takes priority over existing passport', () => {
-  const result = classify({ existingPassport: ['update'], documentation: ['passport'] });
+  const result = classify({
+    existingPassport: ['update'],
+    documentation: ['passport'],
+  });
   assert.equal(result.type, 'Разработка отдельного документа.');
   assert.equal(result.clarification, true);
 });
@@ -21,13 +26,17 @@ test('update selected explicitly has priority', () => {
   );
 });
 test('document bundle never adds approval support', () => {
-  const result = classify({ existingPassport: ['first'], documentation: ['documents'] });
+  const result = classify({
+    existingPassport: ['first'],
+    documentation: ['documents'],
+  });
   assert.equal(result.type, 'Полный комплекс документации.');
   assert.equal(result.includesApprovalSupport, false);
 });
 test('uncertain intent is routed to consultation', () => {
   assert.equal(
-    classify({ existingPassport: ['exists'], documentation: ['consultation'] }).type,
+    classify({ existingPassport: ['exists'], documentation: ['consultation'] })
+      .type,
     'Определение необходимого состава документации.',
   );
 });
@@ -53,7 +62,9 @@ test('unsafe links, duplicate IDs and missing core questions are rejected', () =
 });
 test('commercial prices are the approved fixed prices and package floor', () => {
   assert.deepEqual(
-    content.services.map((x) => [x.price, x.from]),
+    content.services
+      .filter((x) => x.showInPricing !== false)
+      .map((x) => [x.price, x.from]),
     [
       [12500, false],
       [12500, false],

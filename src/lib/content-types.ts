@@ -27,7 +27,9 @@ export interface Service {
   label: string;
   title: string;
   description: string;
-  price: number;
+  price: number | null;
+  priceType?: 'fixed' | 'agreement';
+  showInPricing?: boolean;
   from: boolean;
   note: string;
   action: string;
@@ -39,6 +41,12 @@ export interface Question {
   required: boolean;
   multiple: boolean;
   options: { id: string; label: string }[];
+}
+export interface QuizConfig {
+  enabled: boolean;
+  questions: Question[];
+  successTitle: string;
+  successText: string;
 }
 export interface SiteContent {
   site: {
@@ -57,14 +65,11 @@ export interface SiteContent {
   seo: { title: string; description: string; canonical: string };
   sections: Record<string, Section>;
   services: Service[];
-  quiz: {
-    enabled: boolean;
-    questions: Question[];
-    successTitle: string;
-    successText: string;
-  };
+  quiz: QuizConfig;
 }
 export type Answers = Record<string, string[]>;
 export function price(service: Service) {
+  if (service.priceType === 'agreement' || service.price === null)
+    return 'По согласованию';
   return `${service.from ? 'от ' : ''}${new Intl.NumberFormat('ru-RU').format(service.price)} ₽`;
 }

@@ -1,0 +1,312 @@
+.questionnaire-process {
+  background: white;
+}
+.questionnaire-journey {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 140px;
+  row-gap: 35px;
+  position: relative;
+  max-width: 1050px;
+  margin-inline: auto;
+  padding-block: 25px;
+}
+.questionnaire-journey::before {
+  content: '';
+  position: absolute;
+  top: 43px;
+  bottom: 80px;
+  width: 1px;
+  left: 50%;
+  background: var(--line);
+}
+.questionnaire-journey li {
+  position: relative;
+  min-height: 155px;
+  padding-right: 20px;
+}
+.questionnaire-journey li:nth-child(even) {
+  margin-top: 80px;
+  padding-right: 0;
+  padding-left: 20px;
+}
+.questionnaire-journey li::after {
+  content: '';
+  position: absolute;
+  right: -52px;
+  top: 18px;
+  width: 35px;
+  height: 1px;
+  background: var(--highlight);
+}
+.questionnaire-journey li:nth-child(even)::after {
+  left: -52px;
+  right: auto;
+}
+.questionnaire-journey__index {
+  position: absolute;
+  top: 0;
+  right: -88px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid var(--secondary-ink);
+  border-radius: 50%;
+  color: var(--accent-ink);
+  font-size: 11px;
+}
+.questionnaire-journey li:nth-child(even) .questionnaire-journey__index {
+  right: auto;
+  left: -88px;
+  background: var(--surface-deep);
+}
+.questionnaire-journey h3 {
+  font-size: 27px;
+  line-height: 1.25;
+  max-width: 390px;
+}
+.questionnaire-journey p {
+  font-size: 13px;
+  line-height: 1.85;
+  margin-top: 18px;
+}
+.questionnaire-process .note {
+  max-width: 1000px;
+  margin-top: 40px;
+}
+.questionnaire-contents {
+  background: var(--surface-soft);
+}
+.questionnaire-deliverables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.questionnaire-deliverables > li {
+  display: flex;
+  align-items: start;
+  gap: 25px;
+  padding: 32px;
+  background: white;
+}
+.questionnaire-deliverables > li > span {
+  font-size: 38px;
+  color: var(--muted);
+  line-height: 1;
+  letter-spacing: -0.06em;
+  flex-shrink: 0;
+}
+.questionnaire-deliverables h3 {
+  font-size: 24px;
+  line-height: 1.3;
+}
+.questionnaire-deliverables p {
+  font-size: 13px;
+  line-height: 1.85;
+  margin-top: 15px;
+}
+.questionnaire-deliverables > li[data-result='true'] {
+  grid-column: 1 / -1;
+  background: var(--surface-deep);
+  align-items: center;
+  gap: 35px;
+  padding: 38px;
+}
+.questionnaire-deliverables > li[data-result='true'] > span {
+  color: var(--accent-ink);
+  font-size: 56px;
+}
+.questionnaire-deliverables > li[data-result='true'] > div {
+  flex: 1;
+}
+.questionnaire-deliverables > li[data-result='true'] h3 {
+  font-size: 38px;
+}
+.questionnaire-deliverables > li[data-result='true'] .service-glyph {
+  width: 70px;
+  height: 70px;
+}
+.questionnaire-contents .note {
+  max-width: 1050px;
+  margin-top: 35px;
+}
+.questionnaire-price {
+  background: var(--surface-deep);
+}
+.questionnaire-price h2 {
+  max-width: 850px;
+}
+.questionnaire-price__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 90px;
+  margin-top: 50px;
+}
+.questionnaire-price__value {
+  color: var(--ink);
+  font-size: clamp(65px, 8vw, 112px);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.07em;
+  white-space: nowrap;
+}
+.questionnaire-price__value + p {
+  font-size: 13px;
+  color: var(--secondary-ink);
+  margin-top: 20px;
+}
+.questionnaire-price__copy > p {
+  font-size: 19px;
+  line-height: 1.7;
+  color: var(--ink);
+  max-width: 540px;
+}
+.questionnaire-price__button {
+  background: var(--dark);
+  color: white;
+  margin-top: 30px;
+}
+.questionnaire-price__button:hover {
+  background: var(--secondary-ink);
+}
+.questionnaire-price__condition {
+  max-width: 950px;
+  font-size: 12px;
+  line-height: 1.85;
+  margin-top: 40px;
+  color: var(--line-dark);
+}
+@media (max-width: 1100px) {
+  .questionnaire-journey {
+    column-gap: 120px;
+  }
+  .questionnaire-journey__index {
+    right: -78px;
+  }
+  .questionnaire-journey li:nth-child(even) .questionnaire-journey__index {
+    left: -78px;
+  }
+  .questionnaire-journey li::after {
+    right: -42px;
+    width: 26px;
+  }
+  .questionnaire-journey li:nth-child(even)::after {
+    left: -42px;
+  }
+  .questionnaire-deliverables > li {
+    padding: 28px;
+    gap: 20px;
+  }
+  .questionnaire-price__grid {
+    gap: 50px;
+  }
+}
+@media (max-width: 950px) {
+  .questionnaire-journey {
+    column-gap: 90px;
+  }
+  .questionnaire-journey__index {
+    right: -63px;
+  }
+  .questionnaire-journey li:nth-child(even) .questionnaire-journey__index {
+    left: -63px;
+  }
+  .questionnaire-journey li::after {
+    right: -27px;
+    width: 18px;
+  }
+  .questionnaire-journey li:nth-child(even)::after {
+    left: -27px;
+  }
+  .questionnaire-journey h3 {
+    font-size: 24px;
+  }
+  .questionnaire-deliverables h3 {
+    font-size: 21px;
+  }
+  .questionnaire-deliverables > li > span {
+    font-size: 31px;
+  }
+  .questionnaire-price__value {
+    font-size: 70px;
+  }
+  .questionnaire-price__copy > p {
+    font-size: 17px;
+  }
+}
+@media (max-width: 720px) {
+  .questionnaire-journey {
+    grid-template-columns: 1fr;
+    gap: 35px;
+    padding-block: 10px;
+  }
+  .questionnaire-journey::before {
+    left: 18px;
+    top: 28px;
+    bottom: 30px;
+  }
+  .questionnaire-journey li,
+  .questionnaire-journey li:nth-child(even) {
+    margin-top: 0;
+    padding: 0 0 0 65px;
+    min-height: 0;
+  }
+  .questionnaire-journey__index,
+  .questionnaire-journey li:nth-child(even) .questionnaire-journey__index {
+    left: 0;
+    right: auto;
+  }
+  .questionnaire-journey li::after {
+    display: none;
+  }
+  .questionnaire-journey h3 {
+    font-size: 24px;
+  }
+  .questionnaire-deliverables {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .questionnaire-deliverables > li {
+    padding: 26px;
+    gap: 18px;
+  }
+  .questionnaire-deliverables > li > span {
+    font-size: 31px;
+  }
+  .questionnaire-deliverables h3 {
+    font-size: 23px;
+  }
+  .questionnaire-deliverables > li[data-result='true'] {
+    grid-column: auto;
+    align-items: start;
+    flex-wrap: wrap;
+    padding: 28px;
+    gap: 20px;
+  }
+  .questionnaire-deliverables > li[data-result='true'] > span {
+    font-size: 38px;
+  }
+  .questionnaire-deliverables > li[data-result='true'] h3 {
+    font-size: 29px;
+  }
+  .questionnaire-deliverables > li[data-result='true'] .service-glyph {
+    width: 44px;
+    height: 44px;
+    margin-left: auto;
+  }
+  .questionnaire-price__grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    margin-top: 35px;
+  }
+  .questionnaire-price__value {
+    font-size: clamp(64px, 16vw, 85px);
+  }
+  .questionnaire-price__copy > p {
+    font-size: 17px;
+  }
+}

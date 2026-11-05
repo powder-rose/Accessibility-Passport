@@ -1,0 +1,36 @@
+.cms-navigation {
+  display: flex;
+  gap: 6px;
+  margin-right: auto;
+}
+.cms-navigation a {
+  display: block;
+  padding: 10px 17px;
+  font-size: 13px;
+  border-bottom: 2px solid transparent;
+}
+.cms-navigation a[aria-current='page'] {
+  background: var(--surface-soft);
+  border-color: var(--secondary-ink);
+  color: var(--secondary-ink);
+}
+.cms-section-title {
+  font-size: 38px;
+  margin-bottom: 28px;
+}
+@media (max-width: 760px) {
+  .cms-header {
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+  .cms-navigation {
+    order: 3;
+    width: 100%;
+  }
+  .cms-header .brand {
+    margin-right: auto;
+  }
+  .cms-section-title {
+    font-size: 32px;
+  }
+}

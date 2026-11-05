@@ -6,3 +6,7 @@ data
 .env.*
 coverage
 *.zip
+
+.update-backups
+.sites-runtime
+public/__qa*

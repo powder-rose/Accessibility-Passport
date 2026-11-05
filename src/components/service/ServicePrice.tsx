@@ -21,8 +21,8 @@ export default function ServicePrice({
           <div className="service-price__offer">
             <p className="service-price__value">{price(service)}</p>
             <p className="service-price__caption">{section.priceNote}</p>
-            <p>{section.note}</p>
-            <OrderLink service={service.id} className="button button-teal">
+            {section.note && <p>{section.note}</p>}
+            <OrderLink service={service.id} className="button button-light">
               {section.action}
             </OrderLink>
           </div>

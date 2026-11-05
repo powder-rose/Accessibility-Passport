@@ -1,0 +1,134 @@
+.document-attachments {
+  border: 0;
+  padding: 0;
+  margin: 22px 0;
+  min-width: 0;
+}
+.document-attachments legend {
+  font-size: 14px;
+  font-weight: 570;
+  margin-bottom: 9px;
+}
+.document-attachments > p {
+  font-size: 11px;
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.attachment-picker {
+  position: relative;
+  margin-top: 11px;
+}
+.attachment-picker > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+}
+.attachment-picker > label:hover {
+  border-color: var(--secondary-ink);
+  background: var(--surface-soft);
+}
+.attachment-picker > label > span {
+  color: var(--secondary-ink);
+  font-size: 20px;
+  line-height: 1;
+}
+.attachment-picker > input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+}
+.attachment-picker:has(input:focus-visible) > label {
+  outline: 2px solid var(--secondary-ink);
+  outline-offset: 3px;
+}
+.attachment-list {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+}
+.attachment-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 8px 12px;
+  background: var(--surface-soft);
+}
+.attachment-list li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.attachment-list small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.attachment-list button {
+  background: none;
+  border: 0;
+  font-size: 23px;
+  padding: 0 5px;
+}
+.cms-attachment-settings {
+  margin-bottom: 30px;
+  padding: 18px;
+  border: 1px solid var(--line);
+}
+.cms-attachment-settings summary {
+  cursor: pointer;
+  font-weight: 550;
+}
+.cms-attachment-settings form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+.cms-attachment-settings label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.cms-attachment-settings input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: white;
+}
+.cms-attachment-settings button {
+  justify-self: start;
+  padding: 12px 20px;
+  border: 0;
+  background: var(--dark);
+  color: white;
+}
+.cms-attachment-settings > p {
+  font-size: 13px;
+  margin-top: 15px;
+}
+.cms-attachments {
+  padding: 20px;
+  background: var(--surface-soft);
+  font-size: 13px;
+}
+.cms-attachments li + li {
+  margin-top: 9px;
+}
+.cms-attachments a {
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .cms-attachment-settings form {
+    grid-template-columns: 1fr;
+  }
+}

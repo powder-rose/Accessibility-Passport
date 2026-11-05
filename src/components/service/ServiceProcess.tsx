@@ -1,7 +1,11 @@
 import type { ServiceSection } from '@/lib/service-page-types';
 import { Heading, Note } from '../site/primitives';
 
-export default function ServiceProcess({ section }: { section: ServiceSection }) {
+export default function ServiceProcess({
+  section,
+}: {
+  section: ServiceSection;
+}) {
   return (
     <section className="section service-process" id="process">
       <div className="container">

@@ -17,7 +17,9 @@ export default function AdminLogin({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          const password = String(new FormData(event.currentTarget).get('password') || '');
+          const password = String(
+            new FormData(event.currentTarget).get('password') || '',
+          );
           setBusy(true);
           try {
             await onLogin(password);
@@ -28,7 +30,12 @@ export default function AdminLogin({
       >
         <label>
           Пароль
-          <input type="password" name="password" autoComplete="current-password" required />
+          <input
+            type="password"
+            name="password"
+            autoComplete="current-password"
+            required
+          />
         </label>
         {error && (
           <p role="alert" className="form-error">

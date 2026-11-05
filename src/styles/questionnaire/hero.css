@@ -1,0 +1,284 @@
+.questionnaire-hero {
+  padding-block: 36px 70px;
+}
+.questionnaire-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.7fr);
+  gap: 88px;
+  align-items: center;
+}
+.questionnaire-hero__copy {
+  min-width: 0;
+  animation: reveal-in 800ms var(--ease) both;
+}
+.questionnaire-hero .eyebrow {
+  max-width: 600px;
+  font-size: 9px;
+  margin-bottom: 24px;
+}
+.questionnaire-hero h1 {
+  max-width: 800px;
+  font-size: clamp(42px, 3.4vw, 56px);
+  line-height: 1.08;
+  font-weight: 520;
+  letter-spacing: -0.05em;
+}
+.questionnaire-hero h1 > span:first-child {
+  color: var(--accent-display);
+}
+.questionnaire-hero__description {
+  max-width: 650px;
+  font-size: 14px;
+  line-height: 1.85;
+  margin-top: 26px;
+}
+.questionnaire-hero__region {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--secondary-ink);
+}
+.questionnaire-hero__offer {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  max-width: 650px;
+  border-top: 1px solid var(--line);
+  padding-top: 23px;
+  margin-top: 28px;
+}
+.questionnaire-hero__price {
+  flex-shrink: 0;
+}
+.questionnaire-hero__price > span {
+  font-size: 10px;
+  color: var(--muted);
+}
+.questionnaire-hero__price-value {
+  font-size: 38px;
+  font-weight: 520;
+  line-height: 1.15;
+  letter-spacing: -0.055em;
+  color: var(--ink);
+  white-space: nowrap;
+  margin-top: 5px;
+}
+.questionnaire-hero__price-note {
+  max-width: 220px;
+  font-size: 12px;
+  line-height: 1.75;
+}
+.questionnaire-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px 28px;
+  margin-top: 24px;
+}
+.questionnaire-hero__actions .text-link {
+  max-width: 230px;
+  font-size: 12px;
+}
+.questionnaire-portrait {
+  width: min(100%, 370px);
+  justify-self: end;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  animation: reveal-in 950ms var(--ease) both;
+}
+.questionnaire-portrait__media {
+  aspect-ratio: 4 / 5;
+  padding: 24px 24px 0;
+  overflow: hidden;
+}
+.questionnaire-portrait__media > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+.questionnaire-portrait figcaption {
+  position: relative;
+  background: var(--dark);
+  color: var(--on-dark);
+  padding: 22px 32px 23px;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.questionnaire-portrait figcaption::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 26px;
+  width: 3px;
+  height: 24px;
+  background: var(--accent);
+}
+.questionnaire-portrait figcaption > span {
+  display: block;
+  color: var(--white);
+  font-size: 20px;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  margin-bottom: 3px;
+}
+.questionnaire-advantages {
+  background: white;
+  padding-block: 35px;
+}
+.questionnaire-advantages__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px;
+}
+.questionnaire-advantages__grid li {
+  display: flex;
+  align-items: start;
+  gap: 20px;
+}
+.questionnaire-advantages__grid .service-glyph {
+  width: 35px;
+  height: 35px;
+  color: var(--accent-ink);
+}
+.questionnaire-advantages__title {
+  font-size: 18px;
+  font-weight: 550;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.questionnaire-advantages__title + p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin-top: 12px;
+}
+@media (max-width: 1100px) {
+  .questionnaire-hero__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.62fr);
+    gap: 48px;
+  }
+  .questionnaire-hero h1 {
+    font-size: 46px;
+  }
+  .questionnaire-hero__actions .button {
+    font-size: 12px;
+  }
+  .questionnaire-advantages__grid {
+    gap: 25px;
+  }
+}
+@media (max-width: 950px) {
+  .questionnaire-hero__grid {
+    gap: 32px;
+    align-items: start;
+  }
+  .questionnaire-hero h1 {
+    font-size: 42px;
+  }
+  .questionnaire-portrait {
+    margin-top: 40px;
+  }
+  .questionnaire-portrait figcaption {
+    padding-inline: 20px;
+  }
+  .questionnaire-portrait figcaption > span {
+    font-size: 19px;
+  }
+  .questionnaire-hero__offer {
+    gap: 20px;
+    align-items: end;
+  }
+  .questionnaire-hero__price-value {
+    font-size: 34px;
+  }
+  .questionnaire-hero__price-note {
+    font-size: 11px;
+  }
+  .questionnaire-hero__actions {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .questionnaire-hero__actions .text-link {
+    max-width: none;
+  }
+  .questionnaire-advantages__grid li {
+    display: block;
+  }
+  .questionnaire-advantages__grid .service-glyph {
+    margin-bottom: 20px;
+  }
+}
+@media (max-width: 720px) {
+  .questionnaire-hero {
+    padding-block: 20px 36px;
+  }
+  .questionnaire-hero__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+  .questionnaire-hero .eyebrow {
+    font-size: 8px;
+    margin-bottom: 20px;
+  }
+  .questionnaire-hero h1 {
+    font-size: clamp(34px, 7vw, 42px);
+  }
+  .questionnaire-hero__description {
+    font-size: 13px;
+    margin-top: 22px;
+  }
+  .questionnaire-hero__offer {
+    margin-top: 24px;
+    padding-top: 20px;
+  }
+  .questionnaire-hero__price-value {
+    font-size: 36px;
+  }
+  .questionnaire-portrait {
+    width: 100%;
+    margin-top: 0;
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .questionnaire-portrait__media {
+    aspect-ratio: 1;
+    padding: 8px 8px 0;
+  }
+  .questionnaire-portrait__media > img {
+    object-fit: cover;
+    object-position: center top;
+  }
+  .questionnaire-portrait figcaption {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 18px;
+  }
+  .questionnaire-portrait figcaption::before {
+    top: 22px;
+  }
+  .questionnaire-portrait figcaption > span {
+    font-size: 19px;
+  }
+  .questionnaire-advantages__grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .questionnaire-advantages__grid li {
+    display: flex;
+  }
+  .questionnaire-advantages__grid .service-glyph {
+    margin-bottom: 0;
+  }
+  .questionnaire-advantages__title {
+    font-size: 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .questionnaire-hero__copy,
+  .questionnaire-portrait {
+    animation: none;
+  }
+}

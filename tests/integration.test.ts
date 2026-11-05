@@ -74,14 +74,24 @@ async function start(adminConfigured = true) {
 }
 async function stop() {
   if (!child || child.exitCode !== null) return;
-  const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+  const exited = new Promise<void>((resolve) =>
+    child.once('exit', () => resolve()),
+  );
   child.kill('SIGTERM');
   await exited;
 }
 function request(path: string, options: RequestInit = {}) {
-  return fetch(origin + path, { ...options, signal: AbortSignal.timeout(8000) });
+  return fetch(origin + path, {
+    ...options,
+    signal: AbortSignal.timeout(8000),
+  });
 }
-function mutation(path: string, body: unknown, method = 'POST', authenticated = false) {
+function mutation(
+  path: string,
+  body: unknown,
+  method = 'POST',
+  authenticated = false,
+) {
   return request(path, {
     method,
     headers: {
@@ -132,7 +142,10 @@ test('production SSR contains all approved sections and FAQ before JavaScript ru
   assert.equal((html.match(/<h1\b/g) || []).length, 1);
   assert.match(html, /<html lang="ru">/);
   for (const [key, section] of Object.entries(resolved.sections)) {
-    assert.ok(text.includes(normalized(section.title)), 'Missing visible SSR section ' + key);
+    assert.ok(
+      text.includes(normalized(section.title)),
+      'Missing visible SSR section ' + key,
+    );
   }
   for (const item of resolved.sections['16'].items!) {
     assert.ok(text.includes(normalized(item.title)));
@@ -145,14 +158,26 @@ test('production SSR contains all approved sections and FAQ before JavaScript ru
 
 test('SEO metadata, five service prices, canonical and FAQ schema are present in raw HTML', async () => {
   const html = await (await request('/?utm_source=qa')).text();
-  assert.ok(html.includes('<link rel="canonical" href="' + resolved.seo.canonical + '">'));
-  for (const property of ['og:title', 'og:description', 'og:url', 'og:image', 'og:locale'])
+  assert.ok(
+    html.includes(
+      '<link rel="canonical" href="' + resolved.seo.canonical + '">',
+    ),
+  );
+  for (const property of [
+    'og:title',
+    'og:description',
+    'og:url',
+    'og:image',
+    'og:locale',
+  ])
     assert.ok(html.includes('property="' + property + '"'));
   assert.ok(html.includes('name="description"'));
   assert.match(html, /name="robots" content="index, follow"/);
   const schema = extractJson(html, 'type="application/ld\\+json"');
   assert.equal(
-    schema['@graph'].filter((item: { '@type': string }) => item['@type'] === 'Service').length,
+    schema['@graph'].filter(
+      (item: { '@type': string }) => item['@type'] === 'Service',
+    ).length,
     5,
   );
   const services = schema['@graph'].filter(
@@ -163,17 +188,22 @@ test('SEO metadata, five service prices, canonical and FAQ schema are present in
       (item: { offers: { price?: number; lowPrice?: number } }) =>
         item.offers.price ?? item.offers.lowPrice,
     ),
-    resolved.services.map((s) => s.price),
+    resolved.services
+      .filter((s) => s.showInPricing !== false)
+      .map((s) => s.price),
   );
   assert.equal(
-    schema['@graph'].find((item: { '@type': string }) => item['@type'] === 'FAQPage').mainEntity
-      .length,
+    schema['@graph'].find(
+      (item: { '@type': string }) => item['@type'] === 'FAQPage',
+    ).mainEntity.length,
     13,
   );
 });
 
 test('legal pages, redirects, missing routes and missing assets return correct statuses', async () => {
-  const redirect = await request('/privacy?utm_source=qa', { redirect: 'manual' });
+  const redirect = await request('/privacy?utm_source=qa', {
+    redirect: 'manual',
+  });
   assert.equal(redirect.status, 308);
   assert.equal(redirect.headers.get('location'), '/privacy/?utm_source=qa');
   const legal = await request('/privacy/');
@@ -185,7 +215,10 @@ test('legal pages, redirects, missing routes and missing assets return correct s
   assert.equal((await request('/images/missing.webp')).status, 404);
   assert.equal((await request('/api/missing')).status, 404);
   assert.equal((await request('/api/leads')).status, 405);
-  assert.equal((await request('/index.html', { redirect: 'manual' })).status, 308);
+  assert.equal(
+    (await request('/index.html', { redirect: 'manual' })).status,
+    308,
+  );
   const admin = await request('/admin/');
   assert.match(await admin.text(), /name="robots" content="noindex, nofollow"/);
 });
@@ -193,20 +226,30 @@ test('legal pages, redirects, missing routes and missing assets return correct s
 test('private API rejects unauthenticated requests, bad sessions, cross-origin writes and malformed bodies', async () => {
   assert.equal((await request('/api/admin/content')).status, 404);
   assert.equal(
-    (await request('/api/admin/leads', { headers: { Cookie: 'osi_admin=invalid' } })).status,
+    (
+      await request('/api/admin/leads', {
+        headers: { Cookie: 'osi_admin=invalid' },
+      })
+    ).status,
     401,
   );
   assert.equal(
     (
       await request('/api/admin/login', {
         method: 'POST',
-        headers: { Origin: 'https://example.invalid', 'Content-Type': 'application/json' },
+        headers: {
+          Origin: 'https://example.invalid',
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ password }),
       })
     ).status,
     403,
   );
-  assert.equal((await mutation('/api/admin/login', { password: 'wrong' })).status, 401);
+  assert.equal(
+    (await mutation('/api/admin/login', { password: 'wrong' })).status,
+    401,
+  );
   assert.equal(
     (
       await request('/api/leads', {
@@ -218,8 +261,13 @@ test('private API rejects unauthenticated requests, bad sessions, cross-origin w
     400,
   );
   assert.equal(
-    (await request('/api/leads', { method: 'POST', headers: { Origin: origin }, body: '{}' }))
-      .status,
+    (
+      await request('/api/leads', {
+        method: 'POST',
+        headers: { Origin: origin },
+        body: '{}',
+      })
+    ).status,
     415,
   );
   const badConsent = {
@@ -236,7 +284,13 @@ test('private API rejects unauthenticated requests, bad sessions, cross-origin w
   };
   assert.equal((await mutation('/api/leads', badConsent)).status, 400);
   assert.equal(
-    (await mutation('/api/leads', { ...badConsent, consent: true, website: 'spam' })).status,
+    (
+      await mutation('/api/leads', {
+        ...badConsent,
+        consent: true,
+        website: 'spam',
+      })
+    ).status,
     400,
   );
 });
@@ -257,21 +311,32 @@ test('contact and six-step quiz leads persist, identical retries deduplicate and
   };
   assert.equal((await mutation('/api/leads', data)).status, 200);
   assert.equal((await mutation('/api/leads', data)).status, 200);
-  assert.equal((await mutation('/api/leads', { ...data, comment: 'changed' })).status, 409);
-  const answers = Object.fromEntries(initial.quiz.questions.map((q) => [q.id, [q.options[0].id]]));
+  assert.equal(
+    (await mutation('/api/leads', { ...data, comment: 'changed' })).status,
+    409,
+  );
+  const answers = Object.fromEntries(
+    initial.quiz.questions.map((q) => [q.id, [q.options[0].id]]),
+  );
   answers.documentation = ['documents'];
   const quiz = { ...data, requestId: randomUUID(), source: 'express', answers };
   assert.equal((await mutation('/api/leads', quiz)).status, 200);
-  const result = await (await request('/api/admin/leads', { headers: { Cookie: cookie } })).json();
+  const result = await (
+    await request('/api/admin/leads', { headers: { Cookie: cookie } })
+  ).json();
   assert.equal(result.leads.length, 2);
-  const saved = result.leads.find((lead: { id: string }) => lead.id === quiz.requestId);
+  const saved = result.leads.find(
+    (lead: { id: string }) => lead.id === quiz.requestId,
+  );
   assert.equal(saved.payload.questions.length, 5);
   assert.equal(saved.payload.classification.includesApprovalSupport, false);
   assert.equal(typeof saved.createdAt, 'string');
 });
 
 test('public SEO is ready without CMS, ignores legacy settings, and lead access remains protected', async () => {
-  const legacy = structuredClone(initial) as SiteContent & { site: { indexing?: boolean } };
+  const legacy = structuredClone(initial) as SiteContent & {
+    site: { indexing?: boolean };
+  };
   legacy.site.indexing = false;
   legacy.seo.title = 'Legacy disabled title';
   const connection = new DatabaseSync(database);
@@ -282,9 +347,20 @@ test('public SEO is ready without CMS, ignores legacy settings, and lead access 
     .prepare("INSERT OR REPLACE INTO content_entries VALUES ('home', ?, 1, ?)")
     .run(JSON.stringify(legacy), new Date().toISOString());
   connection.close();
-  assert.equal((await request('/api/admin/content', { headers: { Cookie: cookie } })).status, 404);
   assert.equal(
-    (await mutation('/api/admin/content', { content: legacy, revision: 1 }, 'PUT', true)).status,
+    (await request('/api/admin/content', { headers: { Cookie: cookie } }))
+      .status,
+    404,
+  );
+  assert.equal(
+    (
+      await mutation(
+        '/api/admin/content',
+        { content: legacy, revision: 1 },
+        'PUT',
+        true,
+      )
+    ).status,
     404,
   );
   await stop();
@@ -294,18 +370,30 @@ test('public SEO is ready without CMS, ignores legacy settings, and lead access 
   const html = await response.text();
   assert.match(html, /name="robots" content="index, follow"/);
   assert.ok(!html.includes('Legacy disabled title'));
-  assert.ok(html.includes('<link rel="canonical" href="' + resolved.seo.canonical + '">'));
-  assert.match(await (await request('/robots.txt')).text(), /Allow: \/\nDisallow: \/admin/);
+  assert.ok(
+    html.includes(
+      '<link rel="canonical" href="' + resolved.seo.canonical + '">',
+    ),
+  );
+  assert.match(
+    await (await request('/robots.txt')).text(),
+    /Allow: \/\nDisallow: \/admin/,
+  );
   assert.ok(
     (await (await request('/sitemap.xml')).text()).includes(
       '<loc>' + new URL('/', resolved.site.domain).href + '</loc>',
     ),
   );
   assert.equal((await mutation('/api/admin/login', { password })).status, 503);
-  assert.equal((await request('/api/admin/leads', { headers: { Cookie: cookie } })).status, 401);
+  assert.equal(
+    (await request('/api/admin/leads', { headers: { Cookie: cookie } })).status,
+    401,
+  );
   await stop();
   await start();
-  const leads = await (await request('/api/admin/leads', { headers: { Cookie: cookie } })).json();
+  const leads = await (
+    await request('/api/admin/leads', { headers: { Cookie: cookie } })
+  ).json();
   assert.equal(leads.leads.length, 2);
 });
 
@@ -328,13 +416,27 @@ test('SEO escapes hostile source strings and HTTPS sessions retain Secure', () =
   const content = structuredClone(resolved);
   content.seo.title = 'Паспорт "ОСИ" <SEO> $& </script>';
   content.services[0].price = 13700;
-  const page = createPageData(new URL('https://example.invalid/'), content).data;
+  const page = createPageData(
+    new URL('https://example.invalid/'),
+    content,
+  ).data;
   const head = buildHead(page, '/');
   assert.ok(
-    head.includes('<title>Паспорт &quot;ОСИ&quot; &lt;SEO&gt; $&amp; &lt;/script&gt;</title>'),
+    head.includes(
+      '<title>Паспорт &quot;ОСИ&quot; &lt;SEO&gt; $&amp; &lt;/script&gt;</title>',
+    ),
   );
-  assert.equal(extractJson(head, 'type="application/ld\\+json"')['@graph'][1].offers.price, 13700);
+  assert.equal(
+    extractJson(head, 'type="application/ld\\+json"')['@graph'][1].offers.price,
+    13700,
+  );
 
-  assert.match(sessionCookie(new Request('https://example.invalid/'), 'token', 30), /; Secure$/);
-  assert.doesNotMatch(sessionCookie(new Request('http://localhost/'), 'token', 30), /; Secure/);
+  assert.match(
+    sessionCookie(new Request('https://example.invalid/'), 'token', 30),
+    /; Secure$/,
+  );
+  assert.doesNotMatch(
+    sessionCookie(new Request('http://localhost/'), 'token', 30),
+    /; Secure/,
+  );
 });

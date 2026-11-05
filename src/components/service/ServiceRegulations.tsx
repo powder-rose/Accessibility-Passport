@@ -16,9 +16,14 @@ export default function ServiceRegulations({
         <Heading section={section} />
         <div className="service-regulations__grid">
           {section.items?.map((item, index) => (
-            <article className="service-regulations__card reveal" key={item.title}>
+            <article
+              className="service-regulations__card reveal"
+              key={item.title}
+            >
               <ServiceGlyph
-                name={(['document', 'people', 'building', 'check'] as const)[index]}
+                name={
+                  (['document', 'people', 'building', 'check'] as const)[index]
+                }
               />
               <div>
                 <h3>{item.title}</h3>

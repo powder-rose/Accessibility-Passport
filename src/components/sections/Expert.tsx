@@ -4,10 +4,12 @@ export default function Expert({
   section,
   site,
   service,
+  actionLabel,
 }: {
   section: Section;
   site: SiteContent['site'];
   service?: string;
+  actionLabel?: string;
 }) {
   return (
     <section className="section expert" id="expert">
@@ -41,7 +43,9 @@ export default function Expert({
               </li>
             ))}
           </ol>
-          <OrderLink service={service}>Обсудить объект со специалистом</OrderLink>
+          <OrderLink service={service}>
+            {actionLabel || 'Обсудить объект со специалистом'}
+          </OrderLink>
         </div>
       </div>
     </section>

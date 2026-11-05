@@ -57,28 +57,46 @@ export const contentSchema = z.object({
   sections: z
     .record(section)
     .refine(
-      (v) => Array.from({ length: 17 }, (_, i) => String(i + 1)).every((k) => !!v[k]),
+      (v) =>
+        Array.from({ length: 17 }, (_, i) => String(i + 1)).every(
+          (k) => !!v[k],
+        ),
       'Необходимы все 17 блоков',
     ),
   services: z
     .array(
-      z.object({
-        id: z.string().regex(/^[a-z]+$/),
-        label: short,
-        title: short,
-        description: copy,
-        price: z.number().int().positive().max(10000000),
-        from: z.boolean(),
-        note: short,
-        action: short,
-      }),
+      z
+        .object({
+          id: z.string().regex(/^[a-z]+$/),
+          label: short,
+          title: short,
+          description: copy,
+          price: z.number().int().positive().max(10000000).nullable(),
+          priceType: z.enum(['fixed', 'agreement']).optional(),
+          showInPricing: z.boolean().optional(),
+          from: z.boolean(),
+          note: short,
+          action: short,
+        })
+        .refine(
+          (service) =>
+            service.priceType === 'agreement'
+              ? service.price === null && !service.from
+              : service.price !== null,
+          'Проверьте тип цены',
+        ),
     )
-    .length(5)
+    .length(6)
     .refine(
       (v) =>
-        ['passport', 'survey', 'questionnaire', 'support', 'full'].every((id) =>
-          v.some((x) => x.id === id),
-        ),
+        [
+          'passport',
+          'survey',
+          'questionnaire',
+          'support',
+          'full',
+          'update',
+        ].every((id) => v.some((x) => x.id === id)),
       'Сохраните идентификаторы услуг',
     ),
   quiz: z.object({
@@ -92,7 +110,12 @@ export const contentSchema = z.object({
           required: z.boolean(),
           multiple: z.boolean(),
           options: z
-            .array(z.object({ id: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/), label: short }))
+            .array(
+              z.object({
+                id: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_-]*$/),
+                label: short,
+              }),
+            )
             .min(2)
             .max(20)
             .refine((v) => new Set(v.map((x) => x.id)).size === v.length),
@@ -101,9 +124,13 @@ export const contentSchema = z.object({
       .length(5)
       .refine(
         (v) =>
-          ['objectType', 'purpose', 'existingPassport', 'documentation', 'materials'].every((id) =>
-            v.some((x) => x.id === id),
-          ),
+          [
+            'objectType',
+            'purpose',
+            'existingPassport',
+            'documentation',
+            'materials',
+          ].every((id) => v.some((x) => x.id === id)),
         'Сохраните идентификаторы вопросов',
       ),
     successTitle: short,

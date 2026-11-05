@@ -1,11 +1,14 @@
 import { z } from 'zod';
 import { serviceFromAnswers } from '../../src/lib/service-intent';
-import { routes } from '../../src/lib/routes';
+import { serviceForPath } from '../../src/lib/routes';
 import { getSiteContent } from '../content';
 import { classify } from '../../src/lib/classify';
 import { sha256, equal } from '../../src/lib/crypto';
 import { sameOrigin, rateLimit, jsonError } from './security';
 import type { ApiContext } from './context';
+import { getServiceContent } from '../service-content';
+import { parseLeadRequest } from '../uploads/parse-lead';
+import { UploadError } from '../uploads/errors';
 const leadSchema = z.object({
   requestId: z.string().uuid(),
   source: z.enum(['express', 'contact']),
@@ -26,29 +29,58 @@ const leadSchema = z.object({
     .record(z.string().max(300))
     .refine((x) =>
       Object.keys(x).every((k) =>
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].includes(k),
+        [
+          'utm_source',
+          'utm_medium',
+          'utm_campaign',
+          'utm_term',
+          'utm_content',
+        ].includes(k),
       ),
     ),
   service: z.string().max(100).optional(),
   objectType: z.string().max(100).optional(),
   comment: z.string().max(3000).optional(),
+  passportDevelopedAt: z.string().trim().max(200).optional(),
+  quizMode: z.literal('update').optional(),
   answers: z.record(z.array(z.string().max(100)).max(20)).optional(),
 });
 export async function POST(request: Request, context: ApiContext) {
-  if (!sameOrigin(request)) return jsonError('Недопустимый источник запроса.', 403);
-  if (!request.headers.get('content-type')?.startsWith('application/json'))
-    return jsonError('Ожидается JSON.', 415);
+  if (!sameOrigin(request))
+    return jsonError('Недопустимый источник запроса.', 403);
   try {
-    const raw = await request.text();
-    if (raw.length > 18000) return jsonError('Слишком большой запрос.', 413);
-    const parsed = leadSchema.safeParse(JSON.parse(raw));
-    if (!parsed.success) return jsonError('Проверьте имя, телефон и согласие на обработку данных.');
+    const { input, attachments } = await parseLeadRequest(
+      request,
+      context.store.getAttachmentLimits(),
+    );
+    const parsed = leadSchema.safeParse(input);
+    if (!parsed.success)
+      return jsonError(
+        'Проверьте имя, телефон и согласие на обработку данных.',
+      );
     const data = parsed.data;
     if (Date.now() - data.startedAt < 1500)
       return jsonError('Повторите отправку через несколько секунд.', 429);
     if (new URL(data.pageUrl).origin !== new URL(request.url).origin)
       return jsonError('Недопустимый адрес страницы.', 400);
-    const hash = await sha256(JSON.stringify(data));
+    const sourcePage = new URL(data.pageUrl).pathname;
+    const updatePage = serviceForPath(sourcePage) === 'update';
+    if (
+      (attachments.length && (!updatePage || data.source !== 'contact')) ||
+      (data.quizMode && (!updatePage || data.source !== 'express'))
+    )
+      return jsonError(
+        'Вложения и вопросы актуализации доступны в соответствующей форме.',
+      );
+    const metadata = attachments.map(({ bytes: _bytes, ...file }) => file);
+    const signature = attachments.map(
+      ({ bytes: _bytes, id: _id, ...file }) => file,
+    );
+    const hash = await sha256(
+      JSON.stringify(
+        attachments.length ? { data, attachments: signature } : data,
+      ),
+    );
     const existing = context.store.findLeadHash(data.requestId);
     if (existing)
       return equal(existing, hash)
@@ -58,11 +90,7 @@ export async function POST(request: Request, context: ApiContext) {
       return jsonError('Слишком много запросов. Попробуйте позже.', 429);
     const content = getSiteContent();
     const answers = data.answers || {};
-    if (
-      data.service &&
-      !content.services.some((s) => s.id === data.service) &&
-      data.service !== 'update'
-    )
+    if (data.service && !content.services.some((s) => s.id === data.service))
       return jsonError('Неизвестная услуга.');
     if (
       data.objectType &&
@@ -71,11 +99,19 @@ export async function POST(request: Request, context: ApiContext) {
         ?.options.some((o) => o.id === data.objectType)
     )
       return jsonError('Неизвестный тип объекта.');
+    const quiz =
+      data.quizMode === 'update'
+        ? getServiceContent('update', content).quiz!
+        : content.quiz;
     if (data.source === 'express') {
-      if (!content.quiz.enabled) return jsonError('Проверка временно недоступна.', 409);
-      if (Object.keys(answers).some((k) => !content.quiz.questions.some((q) => q.id === k)))
+      if (!quiz.enabled) return jsonError('Проверка временно недоступна.', 409);
+      if (
+        Object.keys(answers).some(
+          (k) => !quiz.questions.some((q) => q.id === k),
+        )
+      )
         return jsonError('Состав вопросов изменился. Обновите страницу.', 409);
-      for (const q of content.quiz.questions) {
+      for (const q of quiz.questions) {
         const a = answers[q.id] || [];
         if (
           (q.required && !a.length) ||
@@ -86,7 +122,7 @@ export async function POST(request: Request, context: ApiContext) {
           return jsonError('Ответьте на обязательные вопросы проверки.');
       }
     }
-    const resolved = content.quiz.questions.map((q) => ({
+    const resolved = quiz.questions.map((q) => ({
       id: q.id,
       question: q.title,
       answers: (answers[q.id] || []).map((id) => ({
@@ -95,29 +131,59 @@ export async function POST(request: Request, context: ApiContext) {
       })),
     }));
     const selectedService =
-      data.source === 'express' ? serviceFromAnswers(answers.documentation) : data.service;
-    const sourcePage = new URL(data.pageUrl).pathname;
-    const classification = data.source === 'express' ? classify(answers) : null;
+      data.source === 'express'
+        ? data.quizMode === 'update'
+          ? 'update'
+          : serviceFromAnswers(answers.documentation)
+        : data.service || (updatePage ? 'update' : undefined);
+    const classification =
+      data.source === 'express'
+        ? data.quizMode === 'update'
+          ? {
+              type: 'Проверка действующей документации ОСИ.',
+              clarification: true,
+              context:
+                'Состав работ определяется после анализа документов и изменений на объекте.',
+              includesApprovalSupport: false,
+            }
+          : classify(answers)
+        : null;
     const createdAt = new Date().toISOString();
     const payload = {
       ...data,
       service: selectedService,
       sourcePage,
-      initialService: sourcePage === routes.survey ? 'survey' : undefined,
+      initialService: serviceForPath(sourcePage),
       createdAt,
-      sourceLabel: data.source === 'express' ? 'Экспресс-проверка ОСИ' : 'Форма обращения',
+      sourceLabel:
+        data.source === 'express' ? 'Экспресс-проверка ОСИ' : 'Форма обращения',
       classification,
       questions: resolved,
+      ...(metadata.length ? { attachments: metadata } : {}),
       serviceTitle:
         content.services.find((s) => s.id === selectedService)?.title ||
-        (selectedService === 'update' ? 'Актуализация паспорта доступности' : ''),
+        (selectedService === 'update'
+          ? 'Актуализация паспорта доступности'
+          : ''),
       objectTypeLabel:
         content.quiz.questions
           .find((q) => q.id === 'objectType')
-          ?.options.find((o) => o.id === (data.objectType || answers.objectType?.[0]))?.label || '',
-      consentDocuments: { privacy: '/privacy/', personalData: '/personal-data/' },
+          ?.options.find(
+            (o) => o.id === (data.objectType || answers.objectType?.[0]),
+          )?.label || '',
+      consentDocuments: {
+        privacy: '/privacy/',
+        personalData: '/personal-data/',
+      },
     };
-    context.store.insertLead(data.requestId, hash, payload, createdAt, data.source);
+    context.store.insertLead(
+      data.requestId,
+      hash,
+      payload,
+      createdAt,
+      data.source,
+      attachments,
+    );
     const saved = context.store.findLeadHash(data.requestId);
     if (!saved || !equal(saved, hash))
       return jsonError('Не удалось сохранить заявку. Повторите попытку.', 409);
@@ -125,7 +191,9 @@ export async function POST(request: Request, context: ApiContext) {
       { ok: true, id: data.requestId },
       { headers: { 'Cache-Control': 'no-store' } },
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof UploadError)
+      return jsonError(error.message, error.status);
     return jsonError(
       'Не удалось отправить заявку. Ответы сохранены в форме — повторите попытку.',
       503,

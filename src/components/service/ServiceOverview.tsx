@@ -1,7 +1,13 @@
 import type { ServiceSection } from '@/lib/service-page-types';
 import { Note, OrderLink } from '../site/primitives';
 import AccessDiagram from './AccessDiagram';
-export default function ServiceOverview({ section }: { section: ServiceSection }) {
+export default function ServiceOverview({
+  section,
+  service,
+}: {
+  section: ServiceSection;
+  service: string;
+}) {
   return (
     <section className="section service-overview" id="about">
       <div className="container">
@@ -24,7 +30,7 @@ export default function ServiceOverview({ section }: { section: ServiceSection }
         </div>
         <div className="service-overview__footer">
           <Note>{section.note}</Note>
-          <OrderLink service="survey">{section.action}</OrderLink>
+          <OrderLink service={service}>{section.action}</OrderLink>
         </div>
       </div>
     </section>

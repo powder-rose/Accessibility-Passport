@@ -1,33 +1,51 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Answers, SiteContent, Section } from '@/lib/content-types';
+import type {
+  Answers,
+  SiteContent,
+  Section,
+  QuizConfig,
+} from '@/lib/content-types';
 import { Arrow, CheckList } from '../site/primitives';
 import ContactFields, { Consent, formContacts } from './ContactFields';
 import { useLeadSubmission } from './useLeadSubmission';
-import { documentationForService, serviceFromAnswers } from '@/lib/service-intent';
+import {
+  documentationForService,
+  serviceFromAnswers,
+} from '@/lib/service-intent';
 import { track } from '@/lib/analytics';
 export default function ExpressCheck({
   content,
   objectType,
   initialService,
   section: sectionOverride,
+  quiz,
+  mode,
 }: {
   content: SiteContent;
   objectType?: string;
   initialService?: string;
   section?: Section;
+  quiz?: QuizConfig;
+  mode?: 'update';
 }) {
-  const config = content.quiz;
+  const config = quiz || content.quiz;
   const section = sectionOverride || content.sections['5'];
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>(() => {
-    const documentation = documentationForService(initialService);
+    const documentation =
+      mode === 'update' ? undefined : documentationForService(initialService);
     return {
       ...(objectType ? { objectType: [objectType] } : {}),
       ...(documentation ? { documentation: [documentation] } : {}),
     };
   });
   const started = useRef(false);
-  const contactDraft = useRef({ name: '', phone: '', email: '', consent: false });
+  const contactDraft = useRef({
+    name: '',
+    phone: '',
+    email: '',
+    consent: false,
+  });
   const focusTarget = useRef<HTMLHeadingElement>(null);
   const submission = useLeadSubmission();
   const question = config.questions[step];
@@ -36,13 +54,19 @@ export default function ExpressCheck({
     const choose = (e: Event) => {
       const value = (e as CustomEvent<string>).detail;
       if (
-        config.questions.find((x) => x.id === 'objectType')?.options.some((o) => o.id === value)
+        config.questions
+          .find((x) => x.id === 'objectType')
+          ?.options.some((o) => o.id === value)
       ) {
         setAnswers((a) => ({ ...a, objectType: [value] }));
         setStep(config.questions.findIndex((x) => x.id === 'objectType'));
       }
     };
     const chooseService = (e: Event) => {
+      if (mode === 'update') {
+        setStep(0);
+        return;
+      }
       const value = documentationForService((e as CustomEvent<string>).detail);
       if (
         value &&
@@ -60,7 +84,7 @@ export default function ExpressCheck({
       window.removeEventListener('select-object', choose);
       window.removeEventListener('select-quiz-service', chooseService);
     };
-  }, [config.questions]);
+  }, [config.questions, mode]);
   function begin() {
     if (!started.current) {
       track('express_check_start', location.pathname, content.site.metrikaId);
@@ -69,7 +93,11 @@ export default function ExpressCheck({
   }
   function next() {
     begin();
-    track(`express_check_step_${step + 1}`, location.pathname, content.site.metrikaId);
+    track(
+      `express_check_step_${step + 1}`,
+      location.pathname,
+      content.site.metrikaId,
+    );
     setStep((s) => Math.min(s + 1, total - 1));
     setTimeout(() => focusTarget.current?.focus(), 0);
   }
@@ -139,7 +167,9 @@ export default function ExpressCheck({
                   <h3 ref={focusTarget} tabIndex={-1}>
                     {question.title}
                   </h3>
-                  {question.hint && <p className="quiz-hint">{question.hint}</p>}
+                  {question.hint && (
+                    <p className="quiz-hint">{question.hint}</p>
+                  )}
                   <fieldset
                     className={
                       question.options.length > 6
@@ -161,7 +191,9 @@ export default function ExpressCheck({
                           type={question.multiple ? 'checkbox' : 'radio'}
                           name={question.id}
                           value={option.id}
-                          checked={(answers[question.id] || []).includes(option.id)}
+                          checked={(answers[question.id] || []).includes(
+                            option.id,
+                          )}
                           onChange={() => select(option.id)}
                         />
                         <span className="option-indicator" />
@@ -182,7 +214,9 @@ export default function ExpressCheck({
                       className="button button-primary"
                       type="button"
                       onClick={next}
-                      disabled={question.required && !answers[question.id]?.length}
+                      disabled={
+                        question.required && !answers[question.id]?.length
+                      }
                     >
                       Продолжить
                       <Arrow diagonal={false} />
@@ -205,22 +239,38 @@ export default function ExpressCheck({
                         ...contacts,
                         source: 'express',
                         answers,
-                        service: serviceFromAnswers(answers.documentation),
+                        service:
+                          mode === 'update'
+                            ? 'update'
+                            : serviceFromAnswers(answers.documentation),
+                        ...(mode ? { quizMode: mode } : {}),
                       })
                     ) {
-                      track('express_check_submit', location.pathname, content.site.metrikaId);
+                      track(
+                        'express_check_submit',
+                        location.pathname,
+                        content.site.metrikaId,
+                      );
                     }
                   }}
                 >
                   <h3 ref={focusTarget} tabIndex={-1}>
-                    Куда направить результат проверки?
+                    {mode === 'update'
+                      ? 'Как с вами связаться?'
+                      : 'Куда направить результат проверки?'}
                   </h3>
                   <p>
-                    Оставьте контактные данные. Специалист изучит ответы и свяжется с вами по
-                    вопросу разработки документации.
+                    Оставьте контактные данные. Специалист изучит ответы и
+                    свяжется с вами по вопросу разработки документации.
                   </p>
-                  <ContactFields prefix="quiz" defaults={contactDraft.current} />
-                  <Consent prefix="quiz" defaultChecked={contactDraft.current.consent} />
+                  <ContactFields
+                    prefix="quiz"
+                    defaults={contactDraft.current}
+                  />
+                  <Consent
+                    prefix="quiz"
+                    defaultChecked={contactDraft.current.consent}
+                  />
                   {submission.error && (
                     <p className="form-error" role="alert">
                       {submission.error}
@@ -240,7 +290,9 @@ export default function ExpressCheck({
                       type="submit"
                       disabled={submission.pending}
                     >
-                      {submission.pending ? 'Отправка…' : 'Получить результат проверки'}
+                      {submission.pending
+                        ? 'Отправка…'
+                        : 'Получить результат проверки'}
                       <Arrow />
                     </button>
                   </div>

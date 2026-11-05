@@ -1,28 +1,40 @@
 import { useEffect, useState } from 'react';
-import type { Section, SiteContent } from '@/lib/content-types';
+import type { Section, SiteContent, Question } from '@/lib/content-types';
 import { price } from '@/lib/content-types';
 import { Arrow, CheckList } from '../site/primitives';
 import ContactFields, { Consent, formContacts } from './ContactFields';
 import { useLeadSubmission } from './useLeadSubmission';
 import { track } from '@/lib/analytics';
+import type { SelectedAttachment } from '@/lib/attachments';
+import DocumentAttachments from './DocumentAttachments';
 export default function ContactSection({
   content,
   initialService = '',
   section: sectionOverride,
   showServicePrice = false,
   commentLabel = 'Объект или задача',
+  updateMode = false,
+  servicePriceNote,
+  objectOptions,
 }: {
   content: SiteContent;
   initialService?: string;
   section?: Section;
   showServicePrice?: boolean;
   commentLabel?: string;
+  updateMode?: boolean;
+  servicePriceNote?: string;
+  objectOptions?: Question['options'];
 }) {
   const section = sectionOverride || content.sections['17'];
   const [service, setService] = useState(initialService);
+  const [files, setFiles] = useState<SelectedAttachment[]>([]);
   const submission = useLeadSubmission();
   const selectedService = content.services.find((s) => s.id === service);
-  const objects = content.quiz.questions.find((q) => q.id === 'objectType')?.options || [];
+  const objects =
+    objectOptions ||
+    content.quiz.questions.find((q) => q.id === 'objectType')?.options ||
+    [];
   useEffect(() => {
     const choose = (e: Event) => setService((e as CustomEvent<string>).detail);
     window.addEventListener('select-service', choose);
@@ -36,11 +48,16 @@ export default function ContactSection({
           <h2>{section.title}</h2>
           <p>{section.description}</p>
           <CheckList items={section.benefits || []} />
-          <a className="contact-phone" href={`tel:${content.site.phone.replace(/[^+\d]/g, '')}`}>
+          <a
+            className="contact-phone"
+            href={`tel:${content.site.phone.replace(/[^+\d]/g, '')}`}
+          >
             {content.site.phone}
             <Arrow />
           </a>
-          {content.site.email && <a href={`mailto:${content.site.email}`}>{content.site.email}</a>}
+          {content.site.email && (
+            <a href={`mailto:${content.site.email}`}>{content.site.email}</a>
+          )}
         </div>
         <div className="contact-panel">
           {submission.success ? (
@@ -50,8 +67,8 @@ export default function ContactSection({
               </span>
               <h3>Спасибо! Мы получили сведения о вашем объекте.</h3>
               <p>
-                Специалист проверит информацию, уточнит состав необходимой документации и свяжется с
-                вами по вопросу разработки.
+                Специалист проверит информацию, уточнит состав необходимой
+                документации и свяжется с вами по вопросу разработки.
               </p>
             </div>
           ) : (
@@ -64,15 +81,36 @@ export default function ContactSection({
                 const contacts = formContacts(form);
                 const fd = new FormData(form);
                 if (
-                  await submission.submit({
-                    ...contacts,
-                    source: 'contact',
-                    service,
-                    objectType: String(fd.get('objectType') || ''),
-                    comment: String(fd.get('comment') || ''),
-                  })
-                )
-                  track('lead_submit', location.pathname, content.site.metrikaId);
+                  await submission.submit(
+                    {
+                      ...contacts,
+                      source: 'contact',
+                      service,
+                      objectType: String(fd.get('objectType') || ''),
+                      comment: String(fd.get('comment') || ''),
+                      ...(updateMode
+                        ? {
+                            passportDevelopedAt: String(
+                              fd.get('passportDevelopedAt') || '',
+                            ),
+                          }
+                        : {}),
+                    },
+                    files,
+                  )
+                ) {
+                  track(
+                    'lead_submit',
+                    location.pathname,
+                    content.site.metrikaId,
+                  );
+                  if (files.length)
+                    track(
+                      'document_upload_success',
+                      location.pathname,
+                      content.site.metrikaId,
+                    );
+                }
               }}
             >
               <ContactFields prefix="contact" />
@@ -81,16 +119,25 @@ export default function ContactSection({
                   <span>Выбранная услуга</span>
                   <p>
                     {selectedService?.title ||
-                      (service === 'update' ? 'Актуализация паспорта доступности' : service)}
-                    {showServicePrice && selectedService && <> — {price(selectedService)}</>}
+                      (service === 'update'
+                        ? 'Актуализация паспорта доступности'
+                        : service)}
+                    {showServicePrice && selectedService && (
+                      <> — {price(selectedService)}</>
+                    )}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setService('')}
-                    aria-label="Убрать выбранную услугу"
-                  >
-                    ×
-                  </button>
+                  {updateMode && service === 'update' && servicePriceNote && (
+                    <p className="selected-service__note">{servicePriceNote}</p>
+                  )}
+                  {(!updateMode || service !== 'update') && (
+                    <button
+                      type="button"
+                      onClick={() => setService(updateMode ? 'update' : '')}
+                      aria-label="Убрать выбранную услугу"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
               )}
               <label htmlFor="contact-object">
@@ -104,10 +151,34 @@ export default function ContactSection({
                   ))}
                 </select>
               </label>
+              {updateMode && (
+                <label htmlFor="contact-passport-date">
+                  Когда разработан действующий паспорт
+                  <input
+                    id="contact-passport-date"
+                    name="passportDevelopedAt"
+                    type="text"
+                    maxLength={200}
+                  />
+                </label>
+              )}
               <label htmlFor="contact-comment">
                 {commentLabel}
-                <textarea name="comment" id="contact-comment" rows={3} maxLength={3000} />
+                <textarea
+                  name="comment"
+                  id="contact-comment"
+                  rows={3}
+                  maxLength={3000}
+                />
               </label>
+              {updateMode && (
+                <DocumentAttachments
+                  files={files}
+                  onChange={setFiles}
+                  disabled={submission.pending}
+                  metrikaId={content.site.metrikaId}
+                />
+              )}
               <Consent prefix="contact" />
               {submission.error && (
                 <p role="alert" className="form-error">

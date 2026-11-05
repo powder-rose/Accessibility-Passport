@@ -4,6 +4,7 @@ import { price } from '@/lib/content-types';
 import { OrderLink } from '../site/primitives';
 import ExpertPortrait from '../site/ExpertPortrait';
 import QuizLink from '../site/QuizLink';
+import ServiceHeroTitle from './ServiceHeroTitle';
 
 export default function ServiceHero({
   page,
@@ -15,22 +16,13 @@ export default function ServiceHero({
   site: SiteContent['site'];
 }) {
   const hero = page.hero;
-  const lead = 'Акт обследования';
+  const titleId = service.id + '-title';
   return (
-    <section className="service-hero" id="top" aria-labelledby="survey-title">
+    <section className="service-hero" id="top" aria-labelledby={titleId}>
       <div className="container service-hero__grid">
         <div className="service-hero__copy">
           <p className="eyebrow">{hero.eyebrow}</p>
-          <h1 id="survey-title">
-            {hero.title.startsWith(lead) ? (
-              <>
-                <span>{lead}</span>
-                {hero.title.slice(lead.length)}
-              </>
-            ) : (
-              hero.title
-            )}
-          </h1>
+          <ServiceHeroTitle hero={hero} id={titleId} />
           <p className="service-hero__description">{hero.description}</p>
           <p className="service-hero__region">{hero.region}</p>
           <div className="service-hero__offer">
@@ -41,7 +33,7 @@ export default function ServiceHero({
             <p>{hero.priceNote}</p>
           </div>
           <div className="service-actions">
-            <OrderLink service={service.id} className="button button-teal">
+            <OrderLink service={service.id} className="button button-contrast">
               {hero.action}
             </OrderLink>
             <QuizLink service={service.id}>{hero.quizAction}</QuizLink>

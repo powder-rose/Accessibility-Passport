@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>Паспорт доступности ОСИ — БОЙКОВГРУПП</title>
+  <rect width="1200" height="630" fill="#f5f5f3"/>
+  <rect x="840" width="360" height="630" fill="#26272b"/>
+  <g font-family="Inter, Arial, sans-serif" fill="#222326">
+    <text x="64" y="83" font-size="28" font-weight="700">БОЙКОВГРУПП</text>
+    <text x="64" y="230" font-size="66">Паспорт</text>
+    <text x="64" y="310" font-size="66" fill="#e2651b">доступности ОСИ</text>
+    <text x="64" y="385" font-size="20" fill="#626469">Разработка и согласование</text>
+    <text x="64" y="520" font-size="50">12 500 ₽</text>
+    <text x="64" y="560" font-size="16" fill="#626469">Разработка паспорта</text>
+  </g>
+  <path d="M64 440H776" stroke="#d1d2d0"/>
+  <path d="M895 90H1130V540H895Z" fill="none" stroke="#8c8f95"/>
+  <path d="M900 490 1080 310M940 310H1080V450" fill="none" stroke="#f57825" stroke-width="3"/>
+</svg>

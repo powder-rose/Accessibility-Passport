@@ -19,22 +19,38 @@ export function readConfig(): Config {
     const index = args.indexOf(name);
     return index >= 0 ? args[index + 1] : undefined;
   };
-  const production = args.includes('--production') || process.env.NODE_ENV === 'production';
+  const production =
+    args.includes('--production') || process.env.NODE_ENV === 'production';
   const port = Number(argument('--port') || process.env.PORT || 5173);
   const trustProxy = Number(process.env.TRUST_PROXY || 0);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error('Invalid PORT.');
+  if (!Number.isInteger(port) || port < 0 || port > 65535)
+    throw new Error('Invalid PORT.');
   if (!Number.isInteger(trustProxy) || trustProxy < 0 || trustProxy > 10)
     throw new Error('Invalid TRUST_PROXY.');
-  const appOrigin = process.env.APP_ORIGIN ? new URL(process.env.APP_ORIGIN).origin : undefined;
+  const appOrigin = process.env.APP_ORIGIN
+    ? new URL(process.env.APP_ORIGIN).origin
+    : undefined;
   if (production && !appOrigin)
     throw new Error('Set APP_ORIGIN in .env before production startup.');
   if (appOrigin && !/^https?:/.test(appOrigin))
     throw new Error('APP_ORIGIN must use http or https.');
+  if (
+    production &&
+    appOrigin &&
+    new URL(appOrigin).protocol !== 'https:' &&
+    !['localhost', '127.0.0.1', '[::1]'].includes(new URL(appOrigin).hostname)
+  )
+    throw new Error(
+      'Public production APP_ORIGIN must use HTTPS to protect contact details and documents.',
+    );
   const hash = process.env.ADMIN_PASSWORD_SHA256 || '';
   const secret = process.env.ADMIN_SESSION_SECRET || '';
-  if (hash && !/^[a-f0-9]{64}$/i.test(hash)) throw new Error('Invalid ADMIN_PASSWORD_SHA256.');
+  if (hash && !/^[a-f0-9]{64}$/i.test(hash))
+    throw new Error('Invalid ADMIN_PASSWORD_SHA256.');
   if (secret && secret.length < 32)
-    throw new Error('ADMIN_SESSION_SECRET must contain at least 32 characters.');
+    throw new Error(
+      'ADMIN_SESSION_SECRET must contain at least 32 characters.',
+    );
   return {
     production,
     port,

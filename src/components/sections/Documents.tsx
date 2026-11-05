@@ -1,4 +1,4 @@
-import { servicePaths } from '@/lib/routes';
+import { serviceHref } from '@/lib/routes';
 import type { Section, Service } from '@/lib/content-types';
 import { price } from '@/lib/content-types';
 import { Heading, CheckList, OrderLink, Note } from '../site/primitives';
@@ -26,8 +26,11 @@ export default function Documents({
                 <span />
               </div>
               <h3>
-                {servicePaths[x.service || ''] ? (
-                  <a className="service-title-link" href={servicePaths[x.service || '']}>
+                {serviceHref(x.service) ? (
+                  <a
+                    className="service-title-link"
+                    href={serviceHref(x.service)}
+                  >
                     {x.title}
                   </a>
                 ) : (

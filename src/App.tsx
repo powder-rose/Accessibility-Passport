@@ -1,22 +1,41 @@
 import type { PageData } from './page-data';
-import SurveyPage from './pages/SurveyPage';
+import DocumentServicePage from './pages/DocumentServicePage';
 import HomePage from './pages/HomePage';
 import LegalPage from './pages/LegalPage';
 import AdminConsole from './components/admin/AdminConsole';
 import NotFoundPage from './pages/NotFoundPage';
+import UpdatePage from './pages/UpdatePage';
+import BlogPage from './pages/BlogPage';
+import ArticlePage from './pages/ArticlePage';
 
 export default function App(data: PageData) {
   switch (data.route) {
     case 'home':
       return (
-        <HomePage content={data.content} objectType={data.objectType} service={data.service} />
+        <HomePage
+          content={data.content}
+          objectType={data.objectType}
+          service={data.service}
+        />
       );
     case 'survey':
-      return <SurveyPage {...data} />;
+    case 'questionnaire':
+      return <DocumentServicePage {...data} />;
+    case 'update':
+      return <UpdatePage {...data} />;
     case 'legal':
       return <LegalPage content={data.content} document={data.document!} />;
     case 'admin':
-      return <AdminConsole />;
+      return (
+        <AdminConsole
+          path={data.adminPath || '/admin/'}
+          site={data.content.site}
+        />
+      );
+    case 'blog':
+      return <BlogPage {...data} />;
+    case 'article':
+      return <ArticlePage {...data} />;
     case 'not-found':
       return <NotFoundPage />;
   }

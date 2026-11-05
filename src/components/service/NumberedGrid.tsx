@@ -8,8 +8,8 @@ export default function NumberedGrid({ items }: { items: Item[] }) {
             {String(index + 1).padStart(2, '0')}
           </span>
           <div>
-            <h3>{item.title}</h3>
-            {item.text && <p>{item.text}</p>}
+            <p className="service-numbered__title">{item.title}</p>
+            {item.text && <p className="service-numbered__text">{item.text}</p>}
           </div>
         </li>
       ))}

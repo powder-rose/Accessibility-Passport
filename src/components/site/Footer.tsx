@@ -15,7 +15,9 @@ export default function Footer({
             <span>{site.direction}</span>
           </a>
           <div className="footer-contact">
-            <a href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}>{site.phone}</a>
+            <a href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}>
+              {site.phone}
+            </a>
             {site.email && <a href={`mailto:${site.email}`}>{site.email}</a>}
           </div>
           <nav aria-label="Разделы в подвале">
@@ -23,6 +25,7 @@ export default function Footer({
             <a href="/#objects">Типы объектов</a>
             <a href="/#pricing">Стоимость</a>
             <a href="/#faq">Вопрос — ответ</a>
+            <a href="/blog/">Блог Николая Бойкова</a>
           </nav>
         </div>
         <div className="footer-bottom">
@@ -35,7 +38,9 @@ export default function Footer({
           <div>
             <a href="/#requisites">Реквизиты компании</a>
             <a href="/privacy/">Политика конфиденциальности</a>
-            <a href="/personal-data/">Согласие на обработку персональных данных</a>
+            <a href="/personal-data/">
+              Согласие на обработку персональных данных
+            </a>
           </div>
           <a className="back-top" href={topHref} aria-label="В начало страницы">
             ↑

@@ -1,7 +1,13 @@
 import type { ServiceSection } from '@/lib/service-page-types';
 import { Heading, OrderLink } from '../site/primitives';
 import ServiceGlyph from './ServiceGlyph';
-export default function ServiceSourceData({ section }: { section: ServiceSection }) {
+export default function ServiceSourceData({
+  section,
+  service,
+}: {
+  section: ServiceSection;
+  service: string;
+}) {
   return (
     <section className="section service-source" id="source-data">
       <div className="container">
@@ -9,7 +15,9 @@ export default function ServiceSourceData({ section }: { section: ServiceSection
         <div className="service-source__groups">
           {section.groups?.map((group, index) => (
             <article className="service-source__group reveal" key={group.title}>
-              <ServiceGlyph name={(['building', 'route', 'capture'] as const)[index]} />
+              <ServiceGlyph
+                name={(['building', 'route', 'capture'] as const)[index]}
+              />
               <h3>{group.title}</h3>
               <ul>
                 {group.indices.map((itemIndex) => (
@@ -24,7 +32,7 @@ export default function ServiceSourceData({ section }: { section: ServiceSection
             <h3>{section.noteTitle}</h3>
             <p>{section.note}</p>
           </div>
-          <OrderLink service="survey" className="button button-teal">
+          <OrderLink service={service} className="button button-contrast">
             {section.action}
           </OrderLink>
         </div>

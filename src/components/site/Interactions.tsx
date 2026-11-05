@@ -23,27 +23,42 @@ export default function Interactions({ metrikaId }: { metrikaId: string }) {
       const href = a.getAttribute('href');
       const destination = href ? new URL(href, location.href) : undefined;
       const local =
-        destination?.origin === location.origin && destination.pathname === location.pathname;
+        destination?.origin === location.origin &&
+        destination.pathname === location.pathname;
       const ordinaryClick =
-        !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.button === 0;
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.shiftKey &&
+        !event.altKey &&
+        event.button === 0;
       if (ordinaryClick && a.hasAttribute('data-quiz') && local) {
         event.preventDefault();
         if (a.dataset.quizService)
           window.dispatchEvent(
-            new CustomEvent('select-quiz-service', { detail: a.dataset.quizService }),
+            new CustomEvent('select-quiz-service', {
+              detail: a.dataset.quizService,
+            }),
           );
         if (a.dataset.object)
-          window.dispatchEvent(new CustomEvent('select-object', { detail: a.dataset.object }));
+          window.dispatchEvent(
+            new CustomEvent('select-object', { detail: a.dataset.object }),
+          );
         document.getElementById('quiz')?.scrollIntoView({
-          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
         });
         history.replaceState(null, '', '#quiz');
         track('commercial_click', location.pathname, metrikaId);
       } else if (ordinaryClick && a.hasAttribute('data-order') && local) {
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent('select-service', { detail: a.dataset.order }));
+        window.dispatchEvent(
+          new CustomEvent('select-service', { detail: a.dataset.order }),
+        );
         document.getElementById('contact')?.scrollIntoView({
-          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
         });
         history.replaceState(null, '', '#contact');
       } else if (
@@ -53,9 +68,13 @@ export default function Interactions({ metrikaId }: { metrikaId: string }) {
         destination?.hash === '#quiz'
       ) {
         event.preventDefault();
-        window.dispatchEvent(new CustomEvent('select-object', { detail: a.dataset.object }));
+        window.dispatchEvent(
+          new CustomEvent('select-object', { detail: a.dataset.object }),
+        );
         document.getElementById('quiz')?.scrollIntoView({
-          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+          behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
         });
         history.replaceState(null, '', '#quiz');
       } else if (ordinaryClick && local && destination?.hash) {
@@ -63,7 +82,9 @@ export default function Interactions({ metrikaId }: { metrikaId: string }) {
         if (target) {
           event.preventDefault();
           target.scrollIntoView({
-            behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+            behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? 'instant'
+              : 'smooth',
           });
           history.replaceState(null, '', destination.hash);
         }
@@ -74,6 +95,11 @@ export default function Interactions({ metrikaId }: { metrikaId: string }) {
         track('pricing_view', location.pathname, metrikaId);
       if (a.getAttribute('href')?.includes('#contact'))
         track('commercial_click', location.pathname, metrikaId);
+      if (
+        a.dataset.goal === 'update_order_click' ||
+        a.dataset.goal === 'update_review_click'
+      )
+        track(a.dataset.goal, location.pathname, metrikaId);
     };
     document.addEventListener('click', handleClick);
     initializeMetrika(metrikaId);

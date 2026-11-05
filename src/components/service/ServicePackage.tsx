@@ -1,7 +1,11 @@
 import type { ServiceSection } from '@/lib/service-page-types';
 import { Arrow } from '../site/primitives';
 import ServiceGlyph from './ServiceGlyph';
-export default function ServicePackage({ section }: { section: ServiceSection }) {
+export default function ServicePackage({
+  section,
+}: {
+  section: ServiceSection;
+}) {
   return (
     <section className="section service-package">
       <div className="container">
@@ -15,7 +19,11 @@ export default function ServicePackage({ section }: { section: ServiceSection })
             {section.benefits?.map((text, index) => (
               <li key={text} className="reveal">
                 <ServiceGlyph
-                  name={(['check', 'document', 'building', 'people'] as const)[index]}
+                  name={
+                    (['check', 'document', 'building', 'people'] as const)[
+                      index
+                    ]
+                  }
                 />
                 <p>{text}</p>
               </li>
@@ -23,9 +31,16 @@ export default function ServicePackage({ section }: { section: ServiceSection })
           </ul>
           <div className="service-package__offer">
             <p className="service-package__price">{section.priceNote}</p>
-            <p>{section.note}</p>
-            <p>{section.noteText}</p>
-            <a href="/?service=full#contact" className="button button-teal">
+            {section.note && <p>{section.note}</p>}
+            {section.noteText && <p>{section.noteText}</p>}
+            {section.priceDetails && (
+              <ul className="service-package__details">
+                {section.priceDetails.map((text) => (
+                  <li key={text}>{text}</li>
+                ))}
+              </ul>
+            )}
+            <a href="/?service=full#contact" className="button button-contrast">
               {section.action}
               <Arrow />
             </a>

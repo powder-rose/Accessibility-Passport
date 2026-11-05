@@ -6,6 +6,7 @@ const links = [
   ['/#objects', 'Для кого'],
   ['/#process', 'Как работаем'],
   ['/#pricing', 'Стоимость'],
+  ['/blog/', 'Блог'],
 ];
 export default function Header({
   site,
@@ -52,12 +53,19 @@ export default function Header({
               {label}
             </a>
           ))}
-          <a className="mobile-contact" href={contactHref} onClick={() => setOpen(false)}>
+          <a
+            className="mobile-contact"
+            href={contactHref}
+            onClick={() => setOpen(false)}
+          >
             Обсудить объект
           </a>
         </nav>
         <div className="header-actions">
-          <a className="phone" href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}>
+          <a
+            className="phone"
+            href={`tel:${site.phone.replace(/[^+\d]/g, '')}`}
+          >
             {site.phone}
           </a>
           <a className="header-cta" href={contactHref}>

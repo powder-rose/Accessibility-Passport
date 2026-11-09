@@ -1,7 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { attribution } from '@/lib/analytics';
 import { createRequestId } from '@/lib/request-id';
 import type { SelectedAttachment } from '@/lib/attachments';
+import {
+  LeadSubmissionError,
+  leadSubmissionMessages,
+  sendLeadRequest,
+} from '@/lib/lead-submission';
 export function useLeadSubmission() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
@@ -9,12 +14,16 @@ export function useLeadSubmission() {
   const startedAt = useRef(Date.now());
   const request = useRef({ signature: '', id: '' });
   const lock = useRef(false);
+  const active = useRef<AbortController | null>(null);
+  useEffect(() => () => active.current?.abort(), []);
   async function submit(
     payload: Record<string, unknown>,
     attachments: SelectedAttachment[] = [],
   ) {
     if (lock.current) return false;
     lock.current = true;
+    const operation = new AbortController();
+    active.current = operation;
     setPending(true);
     setError('');
     try {
@@ -44,30 +53,26 @@ export function useLeadSubmission() {
           form.append(`attachment:${kind}`, file),
         );
       }
-      const result = await fetch('/api/leads', {
-        method: 'POST',
-        ...(attachments.length
-          ? {}
-          : { headers: { 'Content-Type': 'application/json' } }),
+      await sendLeadRequest({
         body: attachments.length ? form : json,
+        requestId: request.current.id,
+        signal: operation.signal,
       });
-      const body = (await result.json()) as { error?: string; ok?: boolean };
-      if (!result.ok || body.ok !== true)
-        throw new Error(
-          body.error || 'Не удалось отправить заявку. Повторите попытку.',
-        );
+      if (operation.signal.aborted) return false;
       setSuccess(true);
       return true;
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : 'Не удалось отправить заявку. Повторите попытку.',
-      );
+    } catch (error) {
+      if (!operation.signal.aborted)
+        setError(
+          error instanceof LeadSubmissionError
+            ? error.message
+            : leadSubmissionMessages.confirmation,
+        );
       return false;
     } finally {
       lock.current = false;
-      setPending(false);
+      if (active.current === operation) active.current = null;
+      if (!operation.signal.aborted) setPending(false);
     }
   }
   return { submit, pending, error, success };

@@ -2,12 +2,12 @@ import type { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   articleSlug,
-  articleSummary,
   type ArticleForm,
   type ArticleRecord,
 } from '../../src/features/articles/model';
 import { articleText, imageReferences, sanitizeArticleContent } from './html';
 import { storageLimits } from '../../src/lib/storage';
+import { ArticleQueries } from './queries';
 
 export class ArticleError extends Error {
   constructor(
@@ -31,7 +31,10 @@ interface Row {
   request_hash: string;
 }
 export class ArticleRepository {
-  constructor(private readonly db: DatabaseSync) {}
+  readonly queries: ArticleQueries;
+  constructor(private readonly db: DatabaseSync) {
+    this.queries = new ArticleQueries(db);
+  }
   private record(row: Row): ArticleRecord {
     const form = JSON.parse(row.payload) as ArticleForm;
     return {
@@ -53,6 +56,7 @@ export class ArticleRepository {
       .get(id) as Row | undefined;
     return row ? this.record(row) : undefined;
   }
+  // Full records for maintenance; HTTP lists and SSR use the bounded queries.
   list(publishedOnly = false) {
     const rows = this.db
       .prepare(
@@ -62,18 +66,6 @@ export class ArticleRepository {
       )
       .all() as unknown as Row[];
     return rows.map((row) => this.record(row));
-  }
-  summaries() {
-    return this.list(true).map(articleSummary);
-  }
-  categories() {
-    return [
-      ...new Set(
-        this.list()
-          .map((article) => article.category)
-          .filter(Boolean),
-      ),
-    ].sort((a, b) => a.localeCompare(b, 'ru'));
   }
   bySlug(slug: string) {
     const row = this.db

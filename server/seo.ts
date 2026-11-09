@@ -5,7 +5,6 @@ import type { Service, Section, SiteContent } from '../src/lib/content-types';
 import { escapeHtml, scriptJson } from './html';
 export { escapeHtml, scriptJson } from './html';
 import { articleHead } from './articles/seo';
-import type { ArticleSummary } from '../src/features/articles/model';
 export function structuredData(
   content: SiteContent,
   options: {
@@ -152,7 +151,8 @@ export function buildHead(data: PageData, pathname: string) {
   return head.join('\n');
 }
 export function robotsText(content: SiteContent) {
-  const rules = 'Allow: /\nDisallow: /admin\nDisallow: /api/\nDisallow: /*?*';
+  const rules =
+    'Allow: /\nDisallow: /admin\nDisallow: /api/\nAllow: /blog/?\nDisallow: /*?*';
   return (
     'User-agent: *\n' +
     rules +
@@ -161,14 +161,11 @@ export function robotsText(content: SiteContent) {
     '\n'
   );
 }
-export function sitemapXml(
-  content: SiteContent,
-  articles: ArticleSummary[] = [],
-) {
+export function sitemapXml(content: SiteContent, slugs: string[] = []) {
   const entries = [
     ...Object.values(routes),
-    ...(articles.length
-      ? ['/blog/', ...articles.map((article) => '/blog/' + article.slug + '/')]
+    ...(slugs.length
+      ? ['/blog/', ...slugs.map((slug) => '/blog/' + slug + '/')]
       : []),
   ]
     .map(

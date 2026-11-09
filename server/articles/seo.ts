@@ -1,11 +1,20 @@
 import type { PageData } from '../../src/page-data';
 import { escapeHtml, scriptJson } from '../html';
+import { blogPath } from '../../src/features/articles/listing';
 export function articleHead(data: PageData) {
-  const { content, article, articles = [] } = data;
+  const { content, article, blog } = data;
+  const articles = blog?.articles || [];
   const domain = content.site.domain;
-  const path = article ? '/blog/' + article.slug + '/' : '/blog/';
+  const path = article
+    ? '/blog/' + article.slug + '/'
+    : blog
+      ? blogPath(blog)
+      : '/blog/';
   const url = new URL(path, domain).href;
-  const title = article?.seoTitle || 'Блог Николая Бойкова — БОЙКОВГРУПП';
+  const title =
+    article?.seoTitle ||
+    'Блог Николая Бойкова — БОЙКОВГРУПП' +
+      (blog && blog.page > 1 ? ' — страница ' + blog.page : '');
   const description = article?.seoDescription || 'Блог Николая Бойкова';
   const image = new URL(
     article?.image || '/images/og-accessibility.webp',
@@ -83,7 +92,7 @@ export function articleHead(data: PageData) {
   };
   return [
     `<title>${escapeHtml(title)}</title>`,
-    `<meta name="robots" content="${article || articles.length ? 'index, follow' : 'noindex, follow'}">`,
+    `<meta name="robots" content="${article || (articles.length && !blog?.category && !blog?.search) ? 'index, follow' : 'noindex, follow'}">`,
     `<meta name="description" content="${escapeHtml(description)}">`,
     `<link rel="canonical" href="${escapeHtml(url)}">`,
     ...Object.entries({

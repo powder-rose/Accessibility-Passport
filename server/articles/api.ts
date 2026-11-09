@@ -12,6 +12,7 @@ import {
 } from '../api/security';
 import { ArticleError } from './repository';
 import { uploadArticleImage } from './images';
+import { parseArticleQuery, ArticleQueryError } from './list-query';
 
 const uuid = z.string().uuid();
 const createSchema = z.object({ form: articleFormSchema, requestId: uuid });
@@ -31,6 +32,8 @@ async function protectedRequest(
   try {
     return await handler();
   } catch (error) {
+    if (error instanceof ArticleQueryError)
+      return jsonError(error.message, 400);
     if (error instanceof ArticleError)
       return jsonError(error.message, error.status);
     throw error;
@@ -38,10 +41,11 @@ async function protectedRequest(
 }
 const list: ApiHandler = (request, context) =>
   protectedRequest(request, context, () =>
-    Response.json({
-      articles: context.store.articles.list(),
-      categories: context.store.articles.categories(),
-    }),
+    Response.json(
+      context.store.articles.queries.adminPage(
+        parseArticleQuery(new URL(request.url), true),
+      ),
+    ),
   );
 const create: ApiHandler = (request, context) =>
   protectedRequest(request, context, async () => {

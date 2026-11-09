@@ -50,7 +50,9 @@ export async function createApplication(config: Config) {
     res
       .type('application/xml')
       .set('Cache-Control', 'no-cache')
-      .send(sitemapXml(getSiteContent(), store.articles.summaries())),
+      .send(
+        sitemapXml(getSiteContent(), store.articles.queries.publishedSlugs()),
+      ),
   );
   app.use((req, res, next) => {
     const target = canonicalPath(req.path);

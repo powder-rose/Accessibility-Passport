@@ -12,6 +12,7 @@ import {
 } from '../api/security';
 import { ArticleError } from './repository';
 import { uploadArticleImage } from './images';
+import { articleImageResponse } from './image-response';
 import { parseArticleQuery, ArticleQueryError } from './list-query';
 
 const uuid = z.string().uuid();
@@ -120,25 +121,6 @@ const upload: ApiHandler = (request, context) =>
   protectedRequest(request, context, () =>
     uploadArticleImage(request, context),
   );
-const image: ApiHandler = async (request, context) => {
-  const id = new URL(request.url).pathname.split('/').at(-1)!.slice(0, -5);
-  const published = context.store.articles.imageIsPublished(id);
-  if (!published && !(await adminAuthenticated(request, context)))
-    return jsonError('Изображение не найдено.', 404);
-  const file = context.store.articles.image(id);
-  if (!file) return jsonError('Изображение не найдено.', 404);
-  const headers = {
-    'Content-Type': 'image/webp',
-    'X-Content-Type-Options': 'nosniff',
-    'Cache-Control': published
-      ? 'public, max-age=0, must-revalidate'
-      : 'private, no-store',
-    ETag: '"' + file.sha256 + '"',
-  };
-  if (published && request.headers.get('if-none-match') === headers.ETag)
-    return new Response(null, { status: 304, headers });
-  return new Response(new Uint8Array(file.bytes), { headers });
-};
 export function articleEndpoint(
   path: string,
 ): Record<string, ApiHandler> | undefined {
@@ -148,6 +130,6 @@ export function articleEndpoint(
   if (/^\/api\/admin\/articles\/[a-f0-9-]{36}$/.test(path))
     return { GET: read, PUT: update, DELETE: remove };
   if (/^\/media\/articles\/[a-f0-9-]{36}\.webp$/.test(path))
-    return { GET: image, HEAD: image };
+    return { GET: articleImageResponse, HEAD: articleImageResponse };
   return undefined;
 }

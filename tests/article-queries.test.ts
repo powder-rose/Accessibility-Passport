@@ -374,10 +374,6 @@ test('blog pagination is rendered on the server with crawlable links, self canon
   assert.match(second, /href="\/blog\/"/);
   assert.equal((await f.request('/blog/?page=99')).status, 404);
   assert.equal((await f.request('/blog/?page=-1')).status, 400);
-  assert.match(
-    await (await f.request('/robots.txt')).text(),
-    /Allow: \/blog\/\?/,
-  );
 });
 
 test('server-side blog filters search the whole catalogue and do not create indexable search variants', async (t) => {

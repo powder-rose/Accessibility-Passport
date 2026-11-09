@@ -151,8 +151,9 @@ export function buildHead(data: PageData, pathname: string) {
   return head.join('\n');
 }
 export function robotsText(content: SiteContent) {
-  const rules =
-    'Allow: /\nDisallow: /admin\nDisallow: /api/\nAllow: /blog/?\nDisallow: /*?*';
+  // Public query variants must remain crawlable for canonical/noindex in SSR.
+  // Path prefixes also cover the bare private endpoints and their queries.
+  const rules = 'Allow: /\nDisallow: /admin\nDisallow: /api';
   return (
     'User-agent: *\n' +
     rules +

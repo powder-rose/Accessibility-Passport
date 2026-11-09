@@ -30,7 +30,7 @@ HTTP-списки и серверные страницы используют о
 
 У каждой обычной порции собственный canonical: первая — `/blog/`, следующая — `/blog/?page=2` и далее. У вариантов с поиском/категорией — `noindex, follow`, нормализованный собственный URL и обычные ссылки на статьи. Список schema.org содержит только отображаемые карточки. Sitemap продолжает включать все опубликованные статьи независимо от текущей порции.
 
-Для обхода такой навигации в robots.txt добавлено точечное `Allow: /blog/?`. Правила закрытия админки/API и остальных URL с параметрами сохраняются; общий пересмотр параметров сайта — отдельный пункт аудита. Основание: [Google Search Central о навигации списков](https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading).
+Robots.txt разрешает обход публичных URL с параметрами, чтобы робот мог прочитать canonical пагинации и noindex поиска/категорий. Общий запрет query и прежнее точечное исключение `/blog/?` удалены; префиксы админки/API остаются закрытыми. Политика всех параметров: [ROBOTS-PARAMETERS.md](ROBOTS-PARAMETERS.md). Основание для навигации: [Google Search Central о навигации списков](https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading).
 
 ## Админка
 

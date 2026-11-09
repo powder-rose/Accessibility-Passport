@@ -7,6 +7,7 @@ import {
   type ArticleRecord,
 } from '../../src/features/articles/model';
 import { articleText, imageReferences, sanitizeArticleContent } from './html';
+import { storageLimits } from '../../src/lib/storage';
 
 export class ArticleError extends Error {
   constructor(
@@ -133,12 +134,12 @@ export class ArticleRepository {
       requestId,
     }: { id?: string; revision?: number; requestId?: string },
   ) {
-    const form = this.prepare(input);
-    const hash = createHash('sha256')
-      .update(JSON.stringify(form))
-      .digest('hex');
     this.db.exec('BEGIN IMMEDIATE');
     try {
+      const form = this.prepare(input);
+      const hash = createHash('sha256')
+        .update(JSON.stringify(form))
+        .digest('hex');
       if (!id && requestId) {
         const retry = this.db
           .prepare('SELECT * FROM articles WHERE request_id=?')
@@ -228,27 +229,34 @@ export class ArticleRepository {
       throw new ArticleError('Статья уже изменена. Обновите список.', 409);
   }
   addImage(bytes: Buffer, width: number, height: number) {
-    const used = this.db
-      .prepare('SELECT COALESCE(SUM(size),0) AS size FROM article_images')
-      .get() as { size: number };
-    if (used.size + bytes.length > 256 * 1024 * 1024)
-      throw new ArticleError(
-        'Хранилище изображений заполнено. Обратитесь к администратору.',
-        503,
-      );
-    const id = randomUUID();
-    this.db
-      .prepare('INSERT INTO article_images VALUES (?,?,?,?,?,?,?)')
-      .run(
-        id,
-        bytes,
-        width,
-        height,
-        bytes.length,
-        createHash('sha256').update(bytes).digest('hex'),
-        new Date().toISOString(),
-      );
-    return { url: '/media/articles/' + id + '.webp', width, height };
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const used = this.db
+        .prepare('SELECT COALESCE(SUM(size),0) AS size FROM article_images')
+        .get() as { size: number };
+      if (used.size + bytes.length > storageLimits.images)
+        throw new ArticleError(
+          'Хранилище изображений заполнено. Обратитесь к администратору.',
+          503,
+        );
+      const id = randomUUID();
+      this.db
+        .prepare('INSERT INTO article_images VALUES (?,?,?,?,?,?,?)')
+        .run(
+          id,
+          bytes,
+          width,
+          height,
+          bytes.length,
+          createHash('sha256').update(bytes).digest('hex'),
+          new Date().toISOString(),
+        );
+      this.db.exec('COMMIT');
+      return { url: '/media/articles/' + id + '.webp', width, height };
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
   }
   image(id: string) {
     return this.db

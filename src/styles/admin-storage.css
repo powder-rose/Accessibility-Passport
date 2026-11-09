@@ -1,0 +1,111 @@
+.cms-storage {
+  margin: 24px 36px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+}
+.cms-storage summary {
+  padding: 18px;
+  cursor: pointer;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.cms-storage summary span {
+  margin-left: 12px;
+  font-size: 14px;
+  font-weight: 400;
+}
+.cms-storage-content {
+  display: grid;
+  gap: 16px;
+  padding: 0 18px 18px;
+}
+.cms-storage-content p {
+  margin: 0;
+}
+.cms-storage-usages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.cms-storage-usage {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  background: var(--paper);
+  border-radius: 8px;
+}
+.cms-storage-usage progress {
+  width: 100%;
+  accent-color: var(--ink);
+}
+.cms-storage-usage[data-level='warning'] progress,
+.cms-storage-usage[data-level='full'] progress {
+  accent-color: var(--accent-ink);
+}
+.cms-storage-warning {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+.cms-storage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cms-storage-cleanup {
+  display: grid;
+  gap: 16px;
+}
+.cms-storage-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cms-storage-images label {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.cms-storage-images img {
+  width: 100%;
+  height: 100px;
+  object-fit: contain;
+}
+.cms-storage-images input,
+.cms-storage-confirm input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--ink);
+}
+.cms-storage-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.cms-storage-confirm input {
+  flex-shrink: 0;
+}
+.cms-storage .cms-leads-button {
+  white-space: normal;
+}
+@media (max-width: 640px) {
+  .cms-storage {
+    margin: 16px 14px 0;
+  }
+  .cms-storage-usages {
+    grid-template-columns: 1fr;
+  }
+  .cms-storage summary span {
+    display: block;
+    margin: 8px 0 0;
+  }
+  .cms-storage-actions button {
+    width: 100%;
+  }
+}

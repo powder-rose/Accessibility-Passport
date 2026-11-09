@@ -11,12 +11,15 @@ import * as adminLeads from './admin-leads';
 import { jsonError } from './security';
 import * as attachments from './attachments';
 import { articleEndpoint } from '../articles/api';
+import * as storage from './storage';
 
 const endpoints: Record<string, Record<string, ApiHandler>> = {
   '/api/leads': { POST: leads.POST },
   '/api/admin/login': { POST: login.POST, DELETE: login.DELETE },
   '/api/admin/leads': { GET: adminLeads.GET },
   '/api/admin/session': { GET: adminLeads.SESSION },
+  '/api/admin/storage': { GET: storage.report },
+  '/api/admin/storage/cleanup': { GET: storage.preview, POST: storage.cleanup },
   '/api/attachment-limits': { GET: attachments.limits },
   '/api/admin/attachment-settings': {
     GET: attachments.settings,

@@ -15,11 +15,14 @@ import type { LeadPage, LeadRecord } from '../../src/lib/leads';
 import { encodeLeadCursor, type LeadQuery } from './lead-pagination';
 import { authSchema } from '../auth/migration';
 import { AdminRepository } from '../auth/repository';
+import { StorageRepository } from '../storage/repository';
+import { storageLimits } from '../../src/lib/storage';
 
 export class Store {
   private readonly db: DatabaseSync;
   readonly articles: ArticleRepository;
   readonly auth: AdminRepository;
+  readonly storage: StorageRepository;
   constructor(filename: string) {
     if (filename !== ':memory:')
       mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
@@ -73,6 +76,7 @@ export class Store {
     }
     this.articles = new ArticleRepository(this.db);
     this.auth = new AdminRepository(this.db);
+    this.storage = new StorageRepository(this.db);
   }
   findLeadHash(id: string) {
     const row = this.db
@@ -99,7 +103,7 @@ export class Store {
         .get() as { size: number };
       if (
         usage.size + attachments.reduce((sum, file) => sum + file.size, 0) >
-        512 * 1024 * 1024
+        storageLimits.attachments
       )
         throw new UploadError(
           'Хранилище вложений временно недоступно. Позвоните нам или повторите отправку позже.',

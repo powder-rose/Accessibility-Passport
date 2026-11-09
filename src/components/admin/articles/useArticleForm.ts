@@ -7,8 +7,8 @@ import {
 } from '@/features/articles/model';
 import { createRequestId } from '@/lib/request-id';
 import { articleRequest, saveArticle } from './api';
+import { newArticleDraftKey as key } from './local-draft';
 
-const key = 'osi-admin-new-article-draft';
 function initialDraft(id?: string) {
   if (id || typeof window === 'undefined') return null;
   try {

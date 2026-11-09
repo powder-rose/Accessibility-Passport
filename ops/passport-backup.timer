@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Accessibility Passport database backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Europe/Moscow
+RandomizedDelaySec=5min
+Persistent=true
+Unit=passport-backup.service
+
+[Install]
+WantedBy=timers.target

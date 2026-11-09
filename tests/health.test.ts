@@ -44,6 +44,7 @@ async function productionFixture(t: TestContext) {
         APP_ORIGIN: 'http://127.0.0.1',
         DATABASE_PATH: databasePath,
         TRUST_PROXY: '0',
+        ADMIN_PASSWORD_SCRYPT: '',
         ADMIN_PASSWORD_SHA256: '',
         ADMIN_SESSION_SECRET: '',
       },
@@ -202,7 +203,7 @@ test('schema drift is unhealthy and readiness recovers after the database is rep
   try {
     writer.exec('PRAGMA user_version=999');
     assert.equal((await request('/healthz')).status, 503);
-    writer.exec('PRAGMA user_version=3');
+    writer.exec('PRAGMA user_version=4');
     assert.equal((await request('/healthz')).status, 200);
   } finally {
     writer.close();

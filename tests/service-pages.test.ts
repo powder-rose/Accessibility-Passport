@@ -42,6 +42,7 @@ before(async () => {
       APP_ORIGIN: 'http://127.0.0.1',
       DATABASE_PATH: join(directory, 'site.sqlite'),
       TRUST_PROXY: '0',
+      ADMIN_PASSWORD_SCRYPT: '',
       ADMIN_PASSWORD_SHA256: createHash('sha256')
         .update(password)
         .digest('hex'),

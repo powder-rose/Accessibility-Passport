@@ -572,7 +572,7 @@ test('migration from schema 2 preserves leads, attachments and limits while addi
   assert.equal(
     (migrated.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
-    3,
+    4,
   );
   migrated.close();
 });

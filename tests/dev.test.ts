@@ -30,6 +30,9 @@ test(
         HOST: '127.0.0.1',
         PORT: '0',
         DATABASE_PATH: join(directory, 'site.sqlite'),
+        ADMIN_PASSWORD_SCRYPT: '',
+        ADMIN_PASSWORD_SHA256: '',
+        ADMIN_SESSION_SECRET: '',
       },
     });
     child.stdout!.on('data', (chunk) => {

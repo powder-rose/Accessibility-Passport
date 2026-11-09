@@ -14,6 +14,8 @@
     "test": "node --import tsx --test --test-concurrency=1 tests/*.test.mjs tests/*.test.ts",
     "check": "npm run format:check && npm run lint && npm run audit:check && npm run build && npm test",
     "admin:setup": "node scripts/setup-admin.mjs",
+    "admin:migrate": "node scripts/setup-admin.mjs --migrate",
+    "admin:rotate-password": "node scripts/setup-admin.mjs --rotate",
     "healthcheck": "node scripts/healthcheck.mjs",
     "db:backup": "node scripts/database.mjs backup",
     "db:verify": "node scripts/database.mjs verify",

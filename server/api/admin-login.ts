@@ -1,6 +1,11 @@
-import { sha256, equal, sign } from '../../src/lib/crypto';
 import type { ApiContext } from './context';
 import { sameOrigin, rateLimit, jsonError, sessionCookie } from './security';
+import {
+  authenticatePassword,
+  createAdminSession,
+  revokeAdminSession,
+} from '../auth/service';
+import { PasswordBusyError } from '../../scripts/lib/admin-password.mjs';
 
 export async function POST(request: Request, context: ApiContext) {
   if (!sameOrigin(request)) return jsonError('Недопустимый источник.', 403);
@@ -12,15 +17,24 @@ export async function POST(request: Request, context: ApiContext) {
       return jsonError('Попробуйте позже.', 429);
     const raw = await request.text();
     if (raw.length > 1000) return jsonError('Слишком большой запрос.', 413);
-    const { password } = JSON.parse(raw);
+    const value: unknown = JSON.parse(raw);
+    const password =
+      value && typeof value === 'object' && !Array.isArray(value)
+        ? (value as Record<string, unknown>).password
+        : undefined;
     if (
       typeof password !== 'string' ||
-      !equal(await sha256(password), config.adminPasswordHash)
+      !password ||
+      Buffer.byteLength(password) > 4096
     )
       return jsonError('Неверный пароль.', 401);
-    const expires = String(Date.now() + 8 * 60 * 60 * 1000);
-    const token =
-      expires + '.' + (await sign(expires, config.adminSessionSecret));
+    const credential = await authenticatePassword(
+      password,
+      config,
+      context.store,
+    );
+    if (!credential) return jsonError('Неверный пароль.', 401);
+    const token = createAdminSession(config, context.store, credential);
     return Response.json(
       { ok: true },
       {
@@ -30,12 +44,21 @@ export async function POST(request: Request, context: ApiContext) {
         },
       },
     );
-  } catch {
+  } catch (error) {
+    if (error instanceof PasswordBusyError)
+      return Response.json(
+        { error: 'Вход временно занят. Повторите через несколько секунд.' },
+        {
+          status: 429,
+          headers: { 'Cache-Control': 'no-store', 'Retry-After': '2' },
+        },
+      );
     return jsonError('Не удалось войти.', 503);
   }
 }
-export async function DELETE(request: Request) {
+export async function DELETE(request: Request, context: ApiContext) {
   if (!sameOrigin(request)) return jsonError('Недопустимый источник.', 403);
+  revokeAdminSession(request, context.config, context.store);
   return Response.json(
     { ok: true },
     {

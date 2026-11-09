@@ -12,4 +12,6 @@ coverage
 
 .update-backups
 .sites-runtime
+.admin-setup.lock
+.admin-setup-*.tmp
 public/__qa*

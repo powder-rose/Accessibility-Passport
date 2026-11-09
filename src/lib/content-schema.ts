@@ -55,7 +55,7 @@ export const contentSchema = z.object({
     canonical: z.string().url().startsWith('https://'),
   }),
   sections: z
-    .record(section)
+    .record(z.string(), section)
     .refine(
       (v) =>
         Array.from({ length: 17 }, (_, i) => String(i + 1)).every(

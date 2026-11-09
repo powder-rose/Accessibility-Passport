@@ -26,7 +26,7 @@ const leadSchema = z.object({
   startedAt: z.number().positive(),
   pageUrl: z.string().url().max(2000),
   utm: z
-    .record(z.string().max(300))
+    .record(z.string(), z.string().max(300))
     .refine((x) =>
       Object.keys(x).every((k) =>
         [
@@ -43,7 +43,9 @@ const leadSchema = z.object({
   comment: z.string().max(3000).optional(),
   passportDevelopedAt: z.string().trim().max(200).optional(),
   quizMode: z.literal('update').optional(),
-  answers: z.record(z.array(z.string().max(100)).max(20)).optional(),
+  answers: z
+    .record(z.string(), z.array(z.string().max(100)).max(20))
+    .optional(),
 });
 export async function POST(request: Request, context: ApiContext) {
   if (!sameOrigin(request))

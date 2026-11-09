@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
+const StoragePanel = lazy(() => import('./storage/StoragePanel'));
 export default function AdminLayout({
   children,
   path,
@@ -41,6 +42,9 @@ export default function AdminLayout({
           Выйти
         </button>
       </header>
+      <Suspense fallback={<p role="status">Загрузка хранилища…</p>}>
+        <StoragePanel />
+      </Suspense>
       <main className="cms-content">{children}</main>
     </div>
   );

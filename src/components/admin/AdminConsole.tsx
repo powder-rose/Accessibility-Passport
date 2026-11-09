@@ -5,7 +5,6 @@ const ArticlesWorkspace = lazy(() => import('./articles/ArticlesWorkspace'));
 
 import AdminLogin from './AdminLogin';
 import LeadDashboard from './LeadDashboard';
-import type { LeadRecord } from './types';
 
 export default function AdminConsole({
   path = '/admin/',
@@ -17,34 +16,31 @@ export default function AdminConsole({
   const [status, setStatus] = useState<'loading' | 'guest' | 'authenticated'>(
     'loading',
   );
-  const [leads, setLeads] = useState<LeadRecord[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const loadLeads = useCallback(async () => {
-    const response = await fetch(
-      path.startsWith('/admin/articles')
-        ? '/api/admin/session'
-        : '/api/admin/leads',
-    );
+  const loadSession = useCallback(async () => {
+    const response = await fetch('/api/admin/session');
     if (response.status === 401 || response.status === 403) {
       setStatus('guest');
       return;
     }
     const result = (await response.json()) as {
       error?: string;
-      leads?: LeadRecord[];
     };
     if (!response.ok)
-      throw new Error(result.error || 'Не удалось загрузить заявки.');
-    setLeads(result.leads || []);
+      throw new Error(result.error || 'Не удалось проверить сессию.');
     setStatus('authenticated');
-  }, [path]);
+  }, []);
+  const sessionExpired = useCallback(() => {
+    setError('Сессия завершена. Войдите снова.');
+    setStatus('guest');
+  }, []);
   useEffect(() => {
-    loadLeads().catch((e) => {
+    loadSession().catch((e) => {
       setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки.');
       setStatus('guest');
     });
-  }, [loadLeads]);
+  }, [loadSession]);
 
   if (status === 'loading')
     return (
@@ -67,7 +63,7 @@ export default function AdminConsole({
             const result = (await response.json()) as { error?: string };
             if (!response.ok)
               throw new Error(result.error || 'Не удалось войти.');
-            await loadLeads();
+            await loadSession();
           } catch (e) {
             setError(e instanceof Error ? e.message : 'Не удалось войти.');
           }
@@ -80,7 +76,6 @@ export default function AdminConsole({
     try {
       const response = await fetch('/api/admin/login', { method: 'DELETE' });
       if (!response.ok) throw new Error('Не удалось выйти.');
-      setLeads([]);
       setStatus('guest');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Не удалось выйти.');
@@ -99,7 +94,7 @@ export default function AdminConsole({
       {path.startsWith('/admin/articles') ? (
         workspace
       ) : (
-        <LeadDashboard leads={leads} error={error} />
+        <LeadDashboard error={error} onSessionExpired={sessionExpired} />
       )}
     </AdminLayout>
   );

@@ -11,6 +11,8 @@ import type { StoredAttachment } from '../uploads/validate';
 import { UploadError } from '../uploads/errors';
 import { articleSchema } from '../articles/migration';
 import { ArticleRepository } from '../articles/repository';
+import type { LeadPage, LeadRecord } from '../../src/lib/leads';
+import { encodeLeadCursor, type LeadQuery } from './lead-pagination';
 
 export class Store {
   private readonly db: DatabaseSync;
@@ -140,22 +142,45 @@ export class Store {
       { name: string; contentType: string; bytes: Uint8Array } | undefined;
   }
   listLeads() {
+    return this.listLeadPage({ limit: 100 }).leads;
+  }
+  listLeadPage({ limit, cursor }: LeadQuery): LeadPage {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+      throw new Error('Invalid lead page size.');
+    const condition = cursor
+      ? 'WHERE created_at < ? OR (created_at = ? AND id < ?)'
+      : '';
+    const parameters = cursor
+      ? [cursor.createdAt, cursor.createdAt, cursor.id, limit + 1]
+      : [limit + 1];
     const rows = this.db
       .prepare(
-        'SELECT id,payload,created_at,status FROM leads ORDER BY created_at DESC LIMIT 100',
+        `SELECT id,payload,created_at,status FROM leads ${condition} ORDER BY created_at DESC, id DESC LIMIT ?`,
       )
-      .all() as {
+      .all(...parameters) as {
       id: string;
       payload: string;
       created_at: string;
       status: string;
     }[];
-    return rows.map((row) => ({
+    const leads: LeadRecord[] = rows.slice(0, limit).map((row) => ({
       id: row.id,
       createdAt: row.created_at,
       status: row.status,
       payload: JSON.parse(row.payload) as Record<string, unknown>,
     }));
+    const last = leads.at(-1);
+    const { total } = this.db
+      .prepare('SELECT COUNT(*) AS total FROM leads')
+      .get() as { total: number };
+    return {
+      leads,
+      total,
+      nextCursor:
+        rows.length > limit && last
+          ? encodeLeadCursor({ createdAt: last.createdAt, id: last.id })
+          : null,
+    };
   }
   consumeRateLimit(key: string, limit: number, expiresAt: number, now: number) {
     const row = this.db

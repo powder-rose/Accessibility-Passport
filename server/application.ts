@@ -9,6 +9,7 @@ import { apiRouter } from './api/router';
 import { apiBody } from './api/body';
 import { canonicalPath, createPageData } from './page-data';
 import { buildHead, robotsText, scriptJson, sitemapXml } from './seo';
+import { healthHandler } from './health';
 
 export async function createApplication(config: Config) {
   const root = process.cwd();
@@ -22,6 +23,7 @@ export async function createApplication(config: Config) {
     res.setHeader('X-Frame-Options', 'SAMEORIGIN');
     next();
   });
+  app.all(/^\/healthz\/?$/, healthHandler(store));
   app.use(
     '/api',
     (_req, res, next) => {

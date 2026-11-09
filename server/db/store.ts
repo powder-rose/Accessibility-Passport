@@ -108,6 +108,7 @@ export class Store {
         throw new UploadError(
           'Хранилище вложений временно недоступно. Позвоните нам или повторите отправку позже.',
           503,
+          'ATTACHMENT_QUOTA',
         );
       this.db
         .prepare(
@@ -130,7 +131,7 @@ export class Store {
         );
       this.db.exec('COMMIT');
     } catch (error) {
-      this.db.exec('ROLLBACK');
+      if (this.db.isTransaction) this.db.exec('ROLLBACK');
       throw error;
     }
   }

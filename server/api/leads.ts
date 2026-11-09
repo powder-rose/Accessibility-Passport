@@ -194,11 +194,19 @@ export async function POST(request: Request, context: ApiContext) {
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
-    if (error instanceof UploadError)
+    if (error instanceof UploadError && error.status < 500)
       return jsonError(error.message, error.status);
-    return jsonError(
-      'Не удалось отправить заявку. Ответы сохранены в форме — повторите попытку.',
-      503,
+    const response =
+      error instanceof UploadError
+        ? jsonError(error.message, error.status)
+        : jsonError(
+            'Не удалось отправить заявку. Ответы сохранены в форме — повторите попытку.',
+            503,
+          );
+    response.headers.set(
+      'X-Incident-ID',
+      context.diagnostics.failure('lead_submission', error),
     );
+    return response;
   }
 }

@@ -4,6 +4,7 @@ import type {
 } from 'express';
 import type { Config } from '../config';
 import type { Store } from '../db/store';
+import type { Diagnostics } from '../diagnostics';
 import type { ApiHandler } from './context';
 import * as leads from './leads';
 import * as login from './admin-login';
@@ -26,7 +27,11 @@ const endpoints: Record<string, Record<string, ApiHandler>> = {
     PUT: attachments.settings,
   },
 };
-export function apiRouter(config: Config, store: Store) {
+export function apiRouter(
+  config: Config,
+  store: Store,
+  diagnostics: Diagnostics,
+) {
   return async (req: ExpressRequest, res: ExpressResponse) => {
     const origin = config.appOrigin || req.protocol + '://' + req.get('host');
     const url = new URL(req.originalUrl, origin);
@@ -83,6 +88,7 @@ export function apiRouter(config: Config, store: Store) {
       response = await handler(request, {
         config,
         store,
+        diagnostics,
         clientIp: req.ip || req.socket.remoteAddress || 'unknown',
       });
     }

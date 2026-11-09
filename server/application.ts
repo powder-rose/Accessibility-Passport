@@ -12,8 +12,10 @@ import { buildHead, robotsText, scriptJson, sitemapXml } from './seo';
 import { healthHandler } from './health';
 import { configureAdmin } from './auth/service';
 import { Diagnostics } from './diagnostics';
+import { validateDomainConfiguration } from './origin';
 
 export async function createApplication(config: Config) {
+  validateDomainConfiguration(config, getSiteContent());
   const root = process.cwd();
   const app = express();
   const store = new Store(config.databasePath);

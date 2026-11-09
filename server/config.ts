@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { loadEnvFile } from 'node:process';
 import { resolve } from 'node:path';
 import { isScryptHash } from '../scripts/lib/admin-password.mjs';
+import { isLoopbackOrigin, normalizeOrigin } from './origin';
 
 export interface Config {
   production: boolean;
@@ -29,17 +30,15 @@ export function readConfig(): Config {
   if (!Number.isInteger(trustProxy) || trustProxy < 0 || trustProxy > 10)
     throw new Error('Invalid TRUST_PROXY.');
   const appOrigin = process.env.APP_ORIGIN
-    ? new URL(process.env.APP_ORIGIN).origin
+    ? normalizeOrigin(process.env.APP_ORIGIN, 'APP_ORIGIN')
     : undefined;
   if (production && !appOrigin)
     throw new Error('Set APP_ORIGIN in .env before production startup.');
-  if (appOrigin && !/^https?:/.test(appOrigin))
-    throw new Error('APP_ORIGIN must use http or https.');
   if (
     production &&
     appOrigin &&
     new URL(appOrigin).protocol !== 'https:' &&
-    !['localhost', '127.0.0.1', '[::1]'].includes(new URL(appOrigin).hostname)
+    !isLoopbackOrigin(appOrigin)
   )
     throw new Error(
       'Public production APP_ORIGIN must use HTTPS to protect contact details and documents.',

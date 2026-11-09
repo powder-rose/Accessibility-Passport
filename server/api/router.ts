@@ -94,6 +94,8 @@ export function apiRouter(
     }
     res.status(response.status);
     response.headers.forEach((value, name) => res.setHeader(name, value));
-    res.send(Buffer.from(await response.arrayBuffer()));
+    // Preserve bodyless HEAD metadata instead of replacing its length by 0.
+    if (req.method === 'HEAD' && response.body === null) res.send();
+    else res.send(Buffer.from(await response.arrayBuffer()));
   };
 }

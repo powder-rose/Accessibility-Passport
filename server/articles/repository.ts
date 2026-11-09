@@ -250,16 +250,20 @@ export class ArticleRepository {
       throw error;
     }
   }
+  imageMetadata(id: string) {
+    return this.db
+      .prepare(
+        `SELECT i.size,i.sha256,EXISTS(
+          SELECT 1 FROM article_image_refs r JOIN articles a ON a.id=r.article_id
+          WHERE r.image_id=i.id AND a.status='published' AND a.deleted_at IS NULL
+        ) AS published FROM article_images i WHERE i.id=?`,
+      )
+      .get(id) as
+      { size: number; sha256: string; published: number } | undefined;
+  }
   image(id: string) {
     return this.db
       .prepare('SELECT bytes,sha256 FROM article_images WHERE id=?')
       .get(id) as { bytes: Uint8Array; sha256: string } | undefined;
-  }
-  imageIsPublished(id: string) {
-    return !!this.db
-      .prepare(
-        "SELECT 1 FROM article_image_refs r JOIN articles a ON a.id=r.article_id WHERE r.image_id=? AND a.status='published' AND a.deleted_at IS NULL LIMIT 1",
-      )
-      .get(id);
   }
 }

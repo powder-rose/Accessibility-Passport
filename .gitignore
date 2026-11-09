@@ -19,5 +19,7 @@ coverage/
 __qa.html
 
 .update-backups/
+.admin-setup.lock
+.admin-setup-*.tmp
 
 public/__qa*

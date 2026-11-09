@@ -45,6 +45,7 @@ async function start(adminConfigured = true) {
       APP_ORIGIN: origin,
       DATABASE_PATH: database,
       TRUST_PROXY: '0',
+      ADMIN_PASSWORD_SCRYPT: '',
       ADMIN_PASSWORD_SHA256: adminConfigured
         ? createHash('sha256').update(password).digest('hex')
         : '',
@@ -391,9 +392,18 @@ test('public SEO is ready without CMS, ignores legacy settings, and lead access 
   );
   await stop();
   await start();
-  const leads = await (
-    await request('/api/admin/leads', { headers: { Cookie: cookie } })
-  ).json();
+  assert.equal(
+    (await request('/api/admin/leads', { headers: { Cookie: cookie } })).status,
+    401,
+  );
+  const login = await mutation('/api/admin/login', { password });
+  assert.equal(login.status, 200);
+  cookie = login.headers.get('set-cookie')!.split(';')[0];
+  const leadResponse = await request('/api/admin/leads', {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(leadResponse.status, 200);
+  const leads = await leadResponse.json();
   assert.equal(leads.leads.length, 2);
 });
 

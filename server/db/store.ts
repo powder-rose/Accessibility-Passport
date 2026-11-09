@@ -13,10 +13,13 @@ import { articleSchema } from '../articles/migration';
 import { ArticleRepository } from '../articles/repository';
 import type { LeadPage, LeadRecord } from '../../src/lib/leads';
 import { encodeLeadCursor, type LeadQuery } from './lead-pagination';
+import { authSchema } from '../auth/migration';
+import { AdminRepository } from '../auth/repository';
 
 export class Store {
   private readonly db: DatabaseSync;
   readonly articles: ArticleRepository;
+  readonly auth: AdminRepository;
   constructor(filename: string) {
     if (filename !== ':memory:')
       mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
@@ -26,7 +29,7 @@ export class Store {
     const version = this.db.prepare('PRAGMA user_version').get() as {
       user_version: number;
     };
-    if (version.user_version > 3)
+    if (version.user_version > 4)
       throw new Error('Unsupported database schema version.');
     if (version.user_version === 0) {
       this.db.exec('BEGIN IMMEDIATE');
@@ -58,7 +61,18 @@ export class Store {
         throw error;
       }
     }
+    if (version.user_version < 4) {
+      this.db.exec('BEGIN IMMEDIATE');
+      try {
+        this.db.exec(authSchema);
+        this.db.exec('PRAGMA user_version=4; COMMIT');
+      } catch (error) {
+        this.db.exec('ROLLBACK');
+        throw error;
+      }
+    }
     this.articles = new ArticleRepository(this.db);
+    this.auth = new AdminRepository(this.db);
   }
   findLeadHash(id: string) {
     const row = this.db
@@ -193,7 +207,7 @@ export class Store {
   }
   isAvailable(): boolean {
     try {
-      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 3)
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 4)
         return false;
       for (const table of [
         'leads',
@@ -204,6 +218,8 @@ export class Store {
         'article_slugs',
         'article_images',
         'article_image_refs',
+        'admin_credentials',
+        'admin_sessions',
       ]) {
         // Read a bounded amount of real data, without copying BLOBs or writing.
         this.db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get();

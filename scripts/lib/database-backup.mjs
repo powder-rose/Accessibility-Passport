@@ -28,7 +28,7 @@ const tables = [
   'article_images',
   'article_image_refs',
 ];
-const schemaVersion = 3;
+const authTables = ['admin_credentials', 'admin_sessions'];
 
 export class RecoveryError extends Error {}
 
@@ -45,19 +45,19 @@ function openDatabase(filename) {
 }
 
 function checkVersion(database) {
-  if (
-    database.prepare('PRAGMA user_version').get().user_version !== schemaVersion
-  )
+  const version = database.prepare('PRAGMA user_version').get().user_version;
+  if (![3, 4].includes(version))
     throw new RecoveryError(
       'Unsupported database schema; use matching application code.',
     );
+  return version;
 }
 
 function inspectDatabase(filename) {
   const database = openDatabase(filename);
   try {
     database.exec('PRAGMA trusted_schema=OFF; PRAGMA query_only=ON;');
-    checkVersion(database);
+    const schemaVersion = checkVersion(database);
     if (database.prepare('PRAGMA journal_mode').get().journal_mode !== 'delete')
       throw new RecoveryError(
         'Snapshot must use standalone DELETE journal mode.',
@@ -67,12 +67,20 @@ function inspectDatabase(filename) {
       throw new RecoveryError('Database integrity check failed.');
     if (database.prepare('PRAGMA foreign_key_check').all().length)
       throw new RecoveryError('Database foreign key check failed.');
-    return Object.fromEntries(
-      tables.map((table) => [
-        table,
-        database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
-      ]),
+    const counts = Object.fromEntries(
+      (schemaVersion === 4 ? [...tables, ...authTables] : tables).map(
+        (table) => [
+          table,
+          database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()
+            .count,
+        ],
+      ),
     );
+    if (schemaVersion === 4 && counts.admin_sessions !== 0)
+      throw new RecoveryError(
+        'Snapshots must not contain active administrator sessions.',
+      );
+    return { schemaVersion, counts };
   } finally {
     database.close();
   }
@@ -114,8 +122,8 @@ function requireStandalone(directory) {
 function sameCounts(actual, expected) {
   return (
     expected &&
-    Object.keys(expected).length === tables.length &&
-    tables.every((table) => actual[table] === expected[table])
+    Object.keys(expected).length === Object.keys(actual).length &&
+    Object.keys(actual).every((table) => actual[table] === expected[table])
   );
 }
 
@@ -142,6 +150,8 @@ export async function createBackup(databasePath, destination) {
     // Convert the snapshot to a self-contained file; never checkpoint the source.
     const snapshot = new DatabaseSync(pending, { timeout: 5000 });
     try {
+      if (checkVersion(snapshot) === 4)
+        snapshot.exec('PRAGMA trusted_schema=OFF; DELETE FROM admin_sessions;');
       const mode = snapshot.prepare('PRAGMA journal_mode=DELETE').get();
       if (mode.journal_mode !== 'delete')
         throw new RecoveryError('Could not finalize a standalone snapshot.');
@@ -150,7 +160,7 @@ export async function createBackup(databasePath, destination) {
     }
     renameSync(pending, join(directory, 'site.sqlite'));
     const filename = join(directory, 'site.sqlite');
-    const counts = inspectDatabase(filename);
+    const { schemaVersion, counts } = inspectDatabase(filename);
     requireStandalone(directory);
     syncFile(filename);
     const manifest = {
@@ -193,7 +203,7 @@ export async function verifyBackup(snapshotPath) {
   if (
     !manifest ||
     manifest.formatVersion !== 1 ||
-    manifest.schemaVersion !== schemaVersion ||
+    ![3, 4].includes(manifest.schemaVersion) ||
     typeof manifest.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(manifest.createdAt)) ||
     !Number.isSafeInteger(manifest.size) ||
@@ -209,7 +219,9 @@ export async function verifyBackup(snapshotPath) {
     (await digest(filename)) !== manifest.sha256
   )
     throw new RecoveryError('Snapshot size or SHA-256 mismatch.');
-  const counts = inspectDatabase(filename);
+  const { schemaVersion, counts } = inspectDatabase(filename);
+  if (schemaVersion !== manifest.schemaVersion)
+    throw new RecoveryError('Snapshot schema does not match its manifest.');
   if (!sameCounts(counts, manifest.counts))
     throw new RecoveryError('Snapshot row counts do not match its manifest.');
   return {
@@ -237,7 +249,7 @@ export async function restoreBackup(snapshotPath, destination) {
     chmodSync(filename, 0o600);
     if (
       (await digest(filename)) !== verified.sha256 ||
-      !sameCounts(inspectDatabase(filename), verified.counts)
+      !sameCounts(inspectDatabase(filename).counts, verified.counts)
     )
       throw new RecoveryError('Restored database verification failed.');
     syncFile(filename);

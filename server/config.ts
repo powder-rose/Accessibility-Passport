@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { loadEnvFile } from 'node:process';
 import { resolve } from 'node:path';
+import { isScryptHash } from '../scripts/lib/admin-password.mjs';
 
 export interface Config {
   production: boolean;
@@ -43,9 +44,13 @@ export function readConfig(): Config {
     throw new Error(
       'Public production APP_ORIGIN must use HTTPS to protect contact details and documents.',
     );
-  const hash = process.env.ADMIN_PASSWORD_SHA256 || '';
+  const scryptHash = process.env.ADMIN_PASSWORD_SCRYPT || '';
+  const legacyHash = process.env.ADMIN_PASSWORD_SHA256 || '';
+  const hash = scryptHash || legacyHash.toLowerCase();
   const secret = process.env.ADMIN_SESSION_SECRET || '';
-  if (hash && !/^[a-f0-9]{64}$/i.test(hash))
+  if (scryptHash && !isScryptHash(scryptHash))
+    throw new Error('Invalid ADMIN_PASSWORD_SCRYPT.');
+  if (!scryptHash && hash && !/^[a-f0-9]{64}$/.test(hash))
     throw new Error('Invalid ADMIN_PASSWORD_SHA256.');
   if (secret && secret.length < 32)
     throw new Error(
@@ -58,7 +63,7 @@ export function readConfig(): Config {
     host: argument('--host') || process.env.HOST || '127.0.0.1',
     databasePath: resolve(process.env.DATABASE_PATH || './data/site.sqlite'),
     appOrigin,
-    adminPasswordHash: hash.toLowerCase(),
+    adminPasswordHash: hash,
     adminSessionSecret: secret,
   };
 }

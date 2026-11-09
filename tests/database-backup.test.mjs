@@ -355,6 +355,7 @@ test(
           HOST: '127.0.0.1',
           APP_ORIGIN: 'http://127.0.0.1',
           DATABASE_PATH: restored.databasePath,
+          ADMIN_PASSWORD_SCRYPT: '',
           ADMIN_PASSWORD_SHA256: hash(password),
           ADMIN_SESSION_SECRET:
             'synthetic-restoration-secret-with-more-than-32-characters',

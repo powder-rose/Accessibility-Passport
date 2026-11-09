@@ -10,11 +10,13 @@ import { apiBody } from './api/body';
 import { canonicalPath, createPageData } from './page-data';
 import { buildHead, robotsText, scriptJson, sitemapXml } from './seo';
 import { healthHandler } from './health';
+import { configureAdmin } from './auth/service';
 
 export async function createApplication(config: Config) {
   const root = process.cwd();
   const app = express();
   const store = new Store(config.databasePath);
+  configureAdmin(config, store);
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
   app.use((_req, res, next) => {

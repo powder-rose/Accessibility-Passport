@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   articleDate,
   articleFormSchema,
@@ -6,51 +6,37 @@ import {
 } from '@/features/articles/model';
 import { articleRequest, saveArticle } from './api';
 import { createRequestId } from '@/lib/request-id';
+import type {
+  AdminArticleSummary,
+  ArticleQuery,
+} from '@/features/articles/listing';
+import { useArticleList } from './useArticleList';
 
 export default function ArticlesList() {
-  const [articles, setArticles] = useState<ArticleRecord[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const list = useArticleList();
+  const { loading, error, setError, search, setSearch, filter, setFilter } =
+    list;
+  const { articles, categories } = list.listing;
   const [pending, setPending] = useState('');
-  async function load() {
-    setError('');
-    setLoading(true);
-    try {
-      const result = await articleRequest<{
-        articles: ArticleRecord[];
-        categories: string[];
-      }>('/api/admin/articles');
-      setArticles(result.articles);
-      setCategories(result.categories);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : 'Не удалось загрузить статьи.',
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => {
-    load();
-  }, []);
-  async function category(article: ArticleRecord, value: string) {
+  async function category(article: AdminArticleSummary, value: string) {
     const next = value.trim().replace(/\s+/g, ' ');
     if (next === article.category) return true;
     setPending(article.id);
     setError('');
     try {
-      const result = await saveArticle(
-        { ...articleFormSchema.parse(article), category: next },
+      const { article: current } = await articleRequest<{
+        article: ArticleRecord;
+      }>('/api/admin/articles/' + article.id);
+      if (current.revision !== article.revision)
+        throw new Error(
+          'Статья изменена в другой вкладке. Обновите список перед изменением категории.',
+        );
+      await saveArticle(
+        { ...articleFormSchema.parse(current), category: next },
         createRequestId(),
-        article,
+        current,
       );
-      setArticles((items) =>
-        items.map((item) => (item.id === article.id ? result.article : item)),
-      );
-      setCategories((items) => [...new Set([...items, next].filter(Boolean))]);
+      list.refresh();
       return true;
     } catch (error) {
       setError(
@@ -63,7 +49,7 @@ export default function ArticlesList() {
       setPending('');
     }
   }
-  async function remove(article: ArticleRecord) {
+  async function remove(article: AdminArticleSummary) {
     if (!window.confirm('Удалить статью?')) return;
     setPending(article.id);
     setError('');
@@ -72,7 +58,7 @@ export default function ArticlesList() {
         '/api/admin/articles/' + article.id + '?revision=' + article.revision,
         { method: 'DELETE' },
       );
-      setArticles((items) => items.filter((item) => item.id !== article.id));
+      list.refresh();
     } catch (error) {
       setError(
         error instanceof Error ? error.message : 'Не удалось удалить статью.',
@@ -81,13 +67,7 @@ export default function ArticlesList() {
       setPending('');
     }
   }
-  const visible = articles.filter(
-    (article) =>
-      (filter === 'all' || article.status === filter) &&
-      (article.title + ' ' + article.category)
-        .toLocaleLowerCase('ru')
-        .includes(search.toLocaleLowerCase('ru')),
-  );
+  const visible = articles;
   return (
     <div>
       <div className="article-admin-heading">
@@ -113,7 +93,8 @@ export default function ArticlesList() {
               key={value}
               type="button"
               aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
+              disabled={!!pending}
+              onClick={() => setFilter(value as ArticleQuery['status'])}
             >
               {label}
             </button>
@@ -123,6 +104,8 @@ export default function ArticlesList() {
           Поиск по статьям
           <input
             type="search"
+            maxLength={100}
+            disabled={!!pending}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -133,13 +116,16 @@ export default function ArticlesList() {
           {error}
         </p>
       )}
+      {error && !!articles.length && (
+        <p>Показан последний успешно загруженный список.</p>
+      )}
       {loading ? (
         <p role="status">Загрузка…</p>
       ) : (
         <>
-          {!visible.length && (
+          {!error && !visible.length && (
             <p className="article-admin-empty">
-              {articles.length
+              {search || filter !== 'all'
                 ? 'По вашему запросу ничего не найдено.'
                 : 'Статей пока нет.'}
             </p>
@@ -218,9 +204,37 @@ export default function ArticlesList() {
             ))}
           </div>
           {error && (
-            <button type="button" className="article-retry" onClick={load}>
+            <button
+              type="button"
+              className="article-retry"
+              onClick={list.refresh}
+            >
               Обновить список
             </button>
+          )}
+          {list.listing.pages > 1 && (
+            <nav className="cms-leads-pagination" aria-label="Страницы статей">
+              <button
+                type="button"
+                className="cms-leads-button"
+                disabled={!!pending || list.listing.page <= 1}
+                onClick={() => list.go(list.listing.page - 1)}
+              >
+                Назад
+              </button>
+              <p>
+                Страница {list.listing.page} из {list.listing.pages} · Всего:{' '}
+                {list.listing.total}
+              </p>
+              <button
+                type="button"
+                className="cms-leads-button"
+                disabled={!!pending || list.listing.page >= list.listing.pages}
+                onClick={() => list.go(list.listing.page + 1)}
+              >
+                Далее
+              </button>
+            </nav>
           )}
         </>
       )}

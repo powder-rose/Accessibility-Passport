@@ -8,16 +8,9 @@ import ContactSection from '../components/forms/ContactSection';
 export default function ArticlePage({
   content,
   article,
-  articles = [],
+  relatedArticles = [],
 }: PageData) {
   if (!article) throw new Error('Article is missing.');
-  const related = articles
-    .filter((item) => item.id !== article.id)
-    .sort(
-      (a, b) =>
-        Number(b.category === article.category) -
-        Number(a.category === article.category),
-    );
   return (
     <>
       <a className="skip-link" href="#main-content">
@@ -25,7 +18,7 @@ export default function ArticlePage({
       </a>
       <Header site={content.site} contactHref="#contact" />
       <main id="main-content">
-        <ArticleView article={article} related={related} />
+        <ArticleView article={article} related={relatedArticles} />
         <ContactSection content={content} />
       </main>
       <Footer site={content.site} topHref="#article-top" />

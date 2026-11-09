@@ -4,6 +4,8 @@ import documents from '../src/content/legal.json';
 import type { SiteContent } from '../src/lib/content-types';
 import type { PageData } from '../src/page-data';
 import type { ArticleRepository } from './articles/repository';
+import { parseArticleQuery, ArticleQueryError } from './articles/list-query';
+import { articlePageSize } from '../src/features/articles/listing';
 
 export function createPageData(
   url: URL,
@@ -49,11 +51,29 @@ export function createPageData(
       data: { route: 'admin', content, adminPath: url.pathname },
       status: 200,
     };
-  if (url.pathname === '/blog/')
+  if (url.pathname === '/blog/') {
+    let query;
+    try {
+      query = parseArticleQuery(url);
+    } catch (error) {
+      if (!(error instanceof ArticleQueryError)) throw error;
+      return { data: { route: 'not-found', content }, status: 400 };
+    }
+    const blog = articles?.queries.publicPage(query) || {
+      ...query,
+      articles: [],
+      categories: [],
+      total: 0,
+      pages: 1,
+      pageSize: articlePageSize.public,
+    };
+    if (blog.page > blog.pages)
+      return { data: { route: 'not-found', content }, status: 404 };
     return {
-      data: { route: 'blog', content, articles: articles?.summaries() || [] },
+      data: { route: 'blog', content, blog },
       status: 200,
     };
+  }
   const articleSlug = url.pathname.match(
     /^\/blog\/([a-z0-9]+(?:-[a-z0-9]+)*)\/$/,
   )?.[1];
@@ -64,7 +84,7 @@ export function createPageData(
         route: 'article',
         content,
         article,
-        articles: articles?.summaries() || [],
+        relatedArticles: articles?.queries.related(article) || [],
       },
       status: 200,
       ...(article.slug !== articleSlug

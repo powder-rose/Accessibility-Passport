@@ -408,7 +408,7 @@ test('validation, malformed bodies, origin checks and rate limits do not produce
 
 test('the common server error handler uses safe codes instead of raw paths and exception messages', async (t) => {
   const f = await fixture(t);
-  t.mock.method(f.store.articles, 'summaries', () => {
+  t.mock.method(f.store.articles.queries, 'publishedSlugs', () => {
     throw new Error(privateMarker);
   });
   const response = await f.request('/sitemap.xml?private=' + privateMarker);

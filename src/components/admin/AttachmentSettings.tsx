@@ -4,6 +4,7 @@ import {
   MiB,
   type AttachmentLimits,
 } from '@/lib/attachments';
+import { adminJson, adminRequest } from '@/lib/admin-request';
 
 export default function AttachmentSettings() {
   const [limits, setLimits] = useState<AttachmentLimits>();
@@ -11,11 +12,12 @@ export default function AttachmentSettings() {
   const [pending, setPending] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/admin/attachment-settings', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok)
-          throw new Error('Не удалось загрузить настройки вложений.');
-        setLimits(attachmentLimitsSchema.parse(await response.json()));
+    adminRequest<unknown>('/api/admin/attachment-settings', {
+      signal: controller.signal,
+    })
+      .then((result) => {
+        if (!controller.signal.aborted)
+          setLimits(attachmentLimitsSchema.parse(result));
       })
       .catch((error) => {
         if (!controller.signal.aborted)
@@ -36,20 +38,14 @@ export default function AttachmentSettings() {
             setStatus('');
             const data = new FormData(event.currentTarget);
             try {
-              const response = await fetch('/api/admin/attachment-settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+              const body = await adminRequest<unknown>(
+                '/api/admin/attachment-settings',
+                adminJson('PUT', {
                   maxFiles: Number(data.get('count')),
                   maxFileBytes: Number(data.get('file')) * MiB,
                   maxTotalBytes: Number(data.get('total')) * MiB,
                 }),
-              });
-              const body = (await response.json()) as { error?: string };
-              if (!response.ok)
-                throw new Error(
-                  body.error || 'Не удалось сохранить настройки.',
-                );
+              );
               setLimits(attachmentLimitsSchema.parse(body));
               setStatus('Настройки сохранены.');
             } catch (error) {

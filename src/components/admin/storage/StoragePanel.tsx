@@ -8,7 +8,12 @@ import {
   type CleanupPreview,
   type StorageReport,
 } from '@/lib/storage';
-import { articleJson, articleRequest } from '../articles/api';
+import {
+  adminJson,
+  adminRequest,
+  AdminRequestError,
+  adminRequestTimeout,
+} from '@/lib/admin-request';
 import { draftImageIds, newArticleDraftKey } from '../articles/local-draft';
 import StorageUsage from './StorageUsage';
 import StorageCleanup from './StorageCleanup';
@@ -24,12 +29,8 @@ const readDraft = () => {
   }
 };
 function storageRequest(path: string, options: RequestInit = {}) {
-  const timeout = AbortSignal.timeout(15000);
-  return articleRequest<unknown>(path, {
-    ...options,
-    signal: options.signal
-      ? AbortSignal.any([options.signal, timeout])
-      : timeout,
+  return adminRequest<unknown>(path, options, {
+    timeoutMs: adminRequestTimeout.storage,
   });
 }
 const removedSchema = z.object({
@@ -54,7 +55,7 @@ export default function StoragePanel() {
     const value = await storageRequest('/api/admin/storage', {
       signal,
     });
-    setReport(storageReportSchema.parse(value));
+    if (!signal?.aborted) setReport(storageReportSchema.parse(value));
   }
   useEffect(() => {
     const controller = new AbortController();
@@ -79,8 +80,8 @@ export default function StoragePanel() {
       await work();
     } catch (error) {
       setError(
-        error instanceof DOMException &&
-          ['TimeoutError', 'AbortError'].includes(error.name)
+        error instanceof AdminRequestError &&
+          ['timeout', 'aborted', 'network', 'response'].includes(error.kind)
           ? 'Сервер не подтвердил операцию. Обновите данные и предпросмотр перед повтором.'
           : error instanceof Error && !(error instanceof z.ZodError)
             ? error.message
@@ -121,7 +122,7 @@ export default function StoragePanel() {
     const result = removedSchema.parse(
       await storageRequest(
         '/api/admin/storage/cleanup',
-        articleJson('POST', { confirm: true, images }),
+        adminJson('POST', { confirm: true, images }),
       ),
     );
     if (result.removed.count !== images.length)

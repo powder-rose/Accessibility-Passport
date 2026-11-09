@@ -3,32 +3,33 @@ import type {
   ArticleRecord,
   ArticleImage,
 } from '@/features/articles/model';
+import {
+  adminJson,
+  adminRequest,
+  AdminRequestError,
+  adminRequestTimeout,
+  type AdminRequestPolicy,
+} from '@/lib/admin-request';
+
+export { adminJson as articleJson } from '@/lib/admin-request';
 
 export async function articleRequest<T>(
   path: string,
   options: RequestInit = {},
+  policy?: AdminRequestPolicy,
 ): Promise<T> {
-  const response = await fetch(path, options);
-  let body: T & { error?: string };
   try {
-    body = (await response.json()) as T & { error?: string };
-  } catch {
-    throw new Error('Не удалось прочитать ответ сервера. Повторите попытку.');
-  }
-  if (!response.ok) {
-    if (response.status === 401)
-      throw new Error(
+    return await adminRequest<T>(path, options, policy);
+  } catch (error) {
+    if (error instanceof AdminRequestError && error.status === 401)
+      throw new AdminRequestError(
         'Сессия истекла. Войдите в админку в другой вкладке и повторите сохранение.',
+        error.kind,
+        error.status,
       );
-    throw new Error(body.error || 'Не удалось выполнить действие.');
+    throw error;
   }
-  return body;
 }
-export const articleJson = (method: string, body: unknown): RequestInit => ({
-  method,
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-});
 export function saveArticle(
   form: ArticleForm,
   requestId: string,
@@ -36,7 +37,7 @@ export function saveArticle(
 ) {
   return articleRequest<{ article: ArticleRecord; ok: true }>(
     article ? '/api/admin/articles/' + article.id : '/api/admin/articles',
-    articleJson(
+    adminJson(
       article ? 'PUT' : 'POST',
       article ? { form, revision: article.revision } : { form, requestId },
     ),
@@ -45,10 +46,11 @@ export function saveArticle(
 export function uploadImage(file: File) {
   const body = new FormData();
   body.set('image', file);
-  return articleRequest<ArticleImage>('/api/admin/article-images', {
-    method: 'POST',
-    body,
-  });
+  return articleRequest<ArticleImage>(
+    '/api/admin/article-images',
+    { method: 'POST', body },
+    { timeoutMs: adminRequestTimeout.image },
+  );
 }
 export function imageSelectionError(file: File) {
   if (

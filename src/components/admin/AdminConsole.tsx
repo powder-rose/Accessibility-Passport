@@ -1,5 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { SiteContent } from '@/lib/content-types';
+import {
+  adminJson,
+  adminRequest,
+  AdminRequestError,
+} from '@/lib/admin-request';
 import AdminLayout from './AdminLayout';
 const ArticlesWorkspace = lazy(() => import('./articles/ArticlesWorkspace'));
 
@@ -18,28 +23,40 @@ export default function AdminConsole({
   );
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const loadSession = useCallback(async () => {
-    const response = await fetch('/api/admin/session');
-    if (response.status === 401 || response.status === 403) {
-      setStatus('guest');
-      return;
+  const loadSession = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const result = await adminRequest<{ authenticated?: boolean }>(
+        '/api/admin/session',
+        { signal },
+      );
+      if (signal?.aborted) return;
+      if (result?.authenticated !== true)
+        throw new Error('Не удалось подтвердить сессию.');
+      setStatus('authenticated');
+    } catch (error) {
+      if (signal?.aborted) return;
+      if (
+        error instanceof AdminRequestError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        setStatus('guest');
+        return;
+      }
+      throw error;
     }
-    const result = (await response.json()) as {
-      error?: string;
-    };
-    if (!response.ok)
-      throw new Error(result.error || 'Не удалось проверить сессию.');
-    setStatus('authenticated');
   }, []);
   const sessionExpired = useCallback(() => {
     setError('Сессия завершена. Войдите снова.');
     setStatus('guest');
   }, []);
   useEffect(() => {
-    loadSession().catch((e) => {
+    const controller = new AbortController();
+    loadSession(controller.signal).catch((e) => {
+      if (controller.signal.aborted) return;
       setError(e instanceof Error ? e.message : 'Не удалось загрузить заявки.');
       setStatus('guest');
     });
+    return () => controller.abort();
   }, [loadSession]);
 
   if (status === 'loading')
@@ -55,14 +72,10 @@ export default function AdminConsole({
         onLogin={async (password) => {
           setError('');
           try {
-            const response = await fetch('/api/admin/login', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ password }),
-            });
-            const result = (await response.json()) as { error?: string };
-            if (!response.ok)
-              throw new Error(result.error || 'Не удалось войти.');
+            await adminRequest(
+              '/api/admin/login',
+              adminJson('POST', { password }),
+            );
             await loadSession();
           } catch (e) {
             setError(e instanceof Error ? e.message : 'Не удалось войти.');
@@ -74,8 +87,7 @@ export default function AdminConsole({
     setBusy(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/login', { method: 'DELETE' });
-      if (!response.ok) throw new Error('Не удалось выйти.');
+      await adminRequest('/api/admin/login', { method: 'DELETE' });
       setStatus('guest');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Не удалось выйти.');
@@ -92,7 +104,14 @@ export default function AdminConsole({
   return (
     <AdminLayout path={path} busy={busy} onLogout={logout}>
       {path.startsWith('/admin/articles') ? (
-        workspace
+        <>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          {workspace}
+        </>
       ) : (
         <LeadDashboard error={error} onSessionExpired={sessionExpired} />
       )}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { LeadPage } from '@/lib/leads';
+import { adminRequest, AdminRequestError } from '@/lib/admin-request';
 
 export function useLeadPages(onSessionExpired: () => void) {
   const [page, setPage] = useState<LeadPage | null>(null);
@@ -21,23 +22,23 @@ export function useLeadPages(onSessionExpired: () => void) {
         const params = new URLSearchParams({ limit: '25' });
         const cursor = history.at(-1);
         if (cursor) params.set('cursor', cursor);
-        const response = await fetch('/api/admin/leads?' + params, {
-          signal: controller.signal,
-          cache: 'no-store',
-        });
-        if (controller.signal.aborted) return;
-        if (response.status === 401 || response.status === 403) {
-          setPage(null);
-          onSessionExpired();
-          return;
-        }
-        const result = (await response.json()) as LeadPage & { error?: string };
-        if (!response.ok)
-          throw new Error(result.error || 'Не удалось загрузить заявки.');
+        const result = await adminRequest<LeadPage>(
+          '/api/admin/leads?' + params,
+          { signal: controller.signal },
+        );
         if (controller.signal.aborted) return;
         setPage(result);
         setCursors(history);
       } catch (error) {
+        if (controller.signal.aborted) return;
+        if (
+          error instanceof AdminRequestError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          setPage(null);
+          onSessionExpired();
+          return;
+        }
         if (!controller.signal.aborted)
           setError(
             error instanceof Error

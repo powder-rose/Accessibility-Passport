@@ -191,6 +191,28 @@ export class Store {
     this.db.prepare('DELETE FROM rate_limits WHERE expires_at < ?').run(now);
     return row.count <= limit;
   }
+  isAvailable(): boolean {
+    try {
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 3)
+        return false;
+      for (const table of [
+        'leads',
+        'lead_attachments',
+        'upload_settings',
+        'rate_limits',
+        'articles',
+        'article_slugs',
+        'article_images',
+        'article_image_refs',
+      ]) {
+        // Read a bounded amount of real data, without copying BLOBs or writing.
+        this.db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get();
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
   close() {
     this.db.close();
   }

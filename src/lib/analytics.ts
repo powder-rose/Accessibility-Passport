@@ -1,3 +1,6 @@
+import { attribution } from './attribution';
+export { attribution } from './attribution';
+
 type EventName =
   | 'commercial_click'
   | 'phone_click'
@@ -53,19 +56,4 @@ export function track(name: EventName, page: string, metrikaId: string) {
   window.dataLayer.push({ event: name, ...params });
   if (/^\d+$/.test(metrikaId) && window.ym)
     window.ym(Number(metrikaId), 'reachGoal', name, params);
-}
-export function attribution() {
-  const params = new URLSearchParams(location.search);
-  const result: Record<string, string> = {};
-  for (const key of [
-    'utm_source',
-    'utm_medium',
-    'utm_campaign',
-    'utm_term',
-    'utm_content',
-  ]) {
-    const value = params.get(key);
-    if (value) result[key] = value.slice(0, 300);
-  }
-  return result;
 }

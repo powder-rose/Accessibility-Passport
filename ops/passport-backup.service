@@ -1,0 +1,13 @@
+[Unit]
+Description=Verified backup of Accessibility Passport database
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Set this to the repository directory on your VPS before installing.
+WorkingDirectory=/opt/accessibility-passport
+Environment=BACKUP_DIRECTORY=/var/backups/accessibility-passport
+ExecStart=/bin/sh /opt/accessibility-passport/scripts/backup-docker.sh
+UMask=0077
+TimeoutStartSec=15min

@@ -11,6 +11,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && mkdir data && chown node:node data
 COPY --from=build /app/dist ./dist
+COPY scripts/database.mjs ./scripts/database.mjs
+COPY scripts/lib/database-backup.mjs ./scripts/lib/database-backup.mjs
 USER node
 ENV HOST=0.0.0.0 PORT=3000 DATABASE_PATH=/app/data/site.sqlite
 EXPOSE 3000

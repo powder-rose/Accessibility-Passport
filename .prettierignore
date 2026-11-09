@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 data/
+backups/
 .vite/
 .sites-runtime/
 .update-backups/

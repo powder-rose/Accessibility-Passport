@@ -11,11 +11,13 @@ import { canonicalPath, createPageData } from './page-data';
 import { buildHead, robotsText, scriptJson, sitemapXml } from './seo';
 import { healthHandler } from './health';
 import { configureAdmin } from './auth/service';
+import { Diagnostics } from './diagnostics';
 
 export async function createApplication(config: Config) {
   const root = process.cwd();
   const app = express();
   const store = new Store(config.databasePath);
+  const diagnostics = new Diagnostics();
   configureAdmin(config, store);
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
@@ -33,10 +35,10 @@ export async function createApplication(config: Config) {
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       next();
     },
-    apiBody(config, store),
-    apiRouter(config, store),
+    apiBody(config, store, diagnostics),
+    apiRouter(config, store, diagnostics),
   );
-  app.use('/media/articles', apiRouter(config, store));
+  app.use('/media/articles', apiRouter(config, store, diagnostics));
 
   app.get('/robots.txt', (_req, res) =>
     res
@@ -153,13 +155,22 @@ export async function createApplication(config: Config) {
     res,
     _next,
   ) => {
-    const code = (error as { status?: number }).status;
-    const status = code && [400, 413, 415].includes(code) ? code : 503;
+    const code =
+      error && typeof error === 'object'
+        ? (error as { status?: unknown }).status
+        : undefined;
+    const status =
+      typeof code === 'number' && [400, 413, 415].includes(code) ? code : 503;
     if (status === 503)
-      console.error(
-        'Request failed:',
-        req.path,
-        error instanceof Error ? error.message : 'unknown error',
+      res.set(
+        'X-Incident-ID',
+        diagnostics.failure(
+          req.method === 'POST' &&
+            /^\/api\/leads\/?(?:\?|$)/.test(req.originalUrl)
+            ? 'lead_submission'
+            : 'http_request',
+          error,
+        ),
       );
     res
       .status(status)
@@ -187,6 +198,7 @@ export async function createApplication(config: Config) {
   return {
     app,
     store,
+    diagnostics,
     async close() {
       await vite?.close();
       store.close();

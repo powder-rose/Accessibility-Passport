@@ -1,9 +1,14 @@
 import express, { type RequestHandler } from 'express';
 import type { Config } from '../config';
 import type { Store } from '../db/store';
+import type { Diagnostics } from '../diagnostics';
 import { rateLimit, adminAuthenticated } from './security';
 
-export function apiBody(config: Config, store: Store): RequestHandler {
+export function apiBody(
+  config: Config,
+  store: Store,
+  diagnostics: Diagnostics,
+): RequestHandler {
   const jsonBody = express.raw({
     type: () => true,
     limit: '512kb',
@@ -40,7 +45,7 @@ export function apiBody(config: Config, store: Store): RequestHandler {
         new Request(origin + path, {
           headers: { Cookie: req.get('cookie') || '' },
         }),
-        { config, store, clientIp: req.ip || 'unknown' },
+        { config, store, diagnostics, clientIp: req.ip || 'unknown' },
       ))
     ) {
       res.status(401).json({ error: 'Нет доступа.' });
@@ -50,6 +55,7 @@ export function apiBody(config: Config, store: Store): RequestHandler {
       {
         config,
         store,
+        diagnostics,
         clientIp: req.ip || req.socket.remoteAddress || 'unknown',
       },
       articleImage ? 'article-image' : 'upload',

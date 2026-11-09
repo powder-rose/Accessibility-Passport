@@ -12,12 +12,13 @@
     "start": "node dist/server/index.js --production",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test --test-concurrency=1 tests/*.test.mjs tests/*.test.ts",
-    "check": "npm run format:check && npm run lint && npm run build && npm test",
+    "check": "npm run format:check && npm run lint && npm run audit:check && npm run build && npm test",
     "admin:setup": "node scripts/setup-admin.mjs",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "audit:check": "npm audit --audit-level=high --fetch-retries=1 --fetch-timeout=20000"
   },
   "dependencies": {
     "@tiptap/extension-image": "3.32.2",
@@ -30,7 +31,7 @@
     "react-dom": "19.2.6",
     "sanitize-html": "2.18.1",
     "sharp": "0.35.5",
-    "zod": "3.25.76"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -48,6 +49,6 @@
     "tsx": "4.22.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.72.1",
-    "vite": "8.0.13"
+    "vite": "8.3.6"
   }
 }

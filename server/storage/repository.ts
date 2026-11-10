@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { inImmediateTransaction } from '../db/transaction';
 import {
   cleanupBatchSize,
   imageGraceDays,
@@ -53,8 +54,7 @@ export class StorageRepository {
       new Set(images.map((image) => image.id)).size !== images.length
     )
       throw new StorageConflict('Выберите от 1 до 100 разных изображений.');
-    this.db.exec('BEGIN IMMEDIATE');
-    try {
+    return inImmediateTransaction(this.db, () => {
       const query = this.db.prepare(
         `SELECT i.size FROM article_images i WHERE i.id=? AND i.sha256=? AND ${eligible}`,
       );
@@ -70,11 +70,7 @@ export class StorageRepository {
       }
       const remove = this.db.prepare('DELETE FROM article_images WHERE id=?');
       for (const image of images) remove.run(image.id);
-      this.db.exec('COMMIT');
       return { count: images.length, bytes };
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 }

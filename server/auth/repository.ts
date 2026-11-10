@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { inImmediateTransaction } from '../db/transaction';
 
 export interface AdminCredential {
   passwordHash: string | null;
@@ -9,8 +10,7 @@ export class AdminRepository {
   constructor(private readonly db: DatabaseSync) {}
 
   configure(sourceHash: string, initialPasswordHash: string | null) {
-    this.db.exec('BEGIN IMMEDIATE');
-    try {
+    inImmediateTransaction(this.db, () => {
       const previous = this.db
         .prepare('SELECT source_hash FROM admin_credentials WHERE id=1')
         .get();
@@ -22,11 +22,7 @@ export class AdminRepository {
           .run(sourceHash, initialPasswordHash);
         this.revokeAll();
       }
-      this.db.exec('COMMIT');
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
 
   credential(sourceHash: string): AdminCredential | undefined {

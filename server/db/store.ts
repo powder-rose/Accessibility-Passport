@@ -17,6 +17,7 @@ import { authSchema } from '../auth/migration';
 import { AdminRepository } from '../auth/repository';
 import { StorageRepository } from '../storage/repository';
 import { storageLimits } from '../../src/lib/storage';
+import { inImmediateTransaction } from './transaction';
 
 export class Store {
   private readonly db: DatabaseSync;
@@ -35,44 +36,28 @@ export class Store {
     if (version.user_version > 4)
       throw new Error('Unsupported database schema version.');
     if (version.user_version === 0) {
-      this.db.exec('BEGIN IMMEDIATE');
-      try {
+      inImmediateTransaction(this.db, () => {
         this.db.exec(initialSchema);
-        this.db.exec('PRAGMA user_version=1; COMMIT');
-      } catch (error) {
-        this.db.exec('ROLLBACK');
-        throw error;
-      }
+        this.db.exec('PRAGMA user_version=1');
+      });
     }
     if (version.user_version < 2) {
-      this.db.exec('BEGIN IMMEDIATE');
-      try {
+      inImmediateTransaction(this.db, () => {
         this.db.exec(attachmentSchema);
-        this.db.exec('PRAGMA user_version=2; COMMIT');
-      } catch (error) {
-        this.db.exec('ROLLBACK');
-        throw error;
-      }
+        this.db.exec('PRAGMA user_version=2');
+      });
     }
     if (version.user_version < 3) {
-      this.db.exec('BEGIN IMMEDIATE');
-      try {
+      inImmediateTransaction(this.db, () => {
         this.db.exec(articleSchema);
-        this.db.exec('PRAGMA user_version=3; COMMIT');
-      } catch (error) {
-        this.db.exec('ROLLBACK');
-        throw error;
-      }
+        this.db.exec('PRAGMA user_version=3');
+      });
     }
     if (version.user_version < 4) {
-      this.db.exec('BEGIN IMMEDIATE');
-      try {
+      inImmediateTransaction(this.db, () => {
         this.db.exec(authSchema);
-        this.db.exec('PRAGMA user_version=4; COMMIT');
-      } catch (error) {
-        this.db.exec('ROLLBACK');
-        throw error;
-      }
+        this.db.exec('PRAGMA user_version=4');
+      });
     }
     this.articles = new ArticleRepository(this.db);
     this.auth = new AdminRepository(this.db);
@@ -92,12 +77,8 @@ export class Store {
     source: string,
     attachments: StoredAttachment[] = [],
   ) {
-    this.db.exec('BEGIN IMMEDIATE');
-    try {
-      if (this.findLeadHash(id)) {
-        this.db.exec('COMMIT');
-        return;
-      }
+    inImmediateTransaction(this.db, () => {
+      if (this.findLeadHash(id)) return;
       const usage = this.db
         .prepare('SELECT COALESCE(SUM(size),0) AS size FROM lead_attachments')
         .get() as { size: number };
@@ -129,11 +110,7 @@ export class Store {
           file.sha256,
           file.bytes,
         );
-      this.db.exec('COMMIT');
-    } catch (error) {
-      if (this.db.isTransaction) this.db.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
   getAttachmentLimits(): AttachmentLimits {
     const row = this.db

@@ -8,6 +8,7 @@ import {
 import { articleText, imageReferences, sanitizeArticleContent } from './html';
 import { storageLimits } from '../../src/lib/storage';
 import { ArticleQueries } from './queries';
+import { inImmediateTransaction } from '../db/transaction';
 
 export class ArticleError extends Error {
   constructor(
@@ -126,8 +127,7 @@ export class ArticleRepository {
       requestId,
     }: { id?: string; revision?: number; requestId?: string },
   ) {
-    this.db.exec('BEGIN IMMEDIATE');
-    try {
+    return inImmediateTransaction(this.db, () => {
       const form = this.prepare(input);
       const hash = createHash('sha256')
         .update(JSON.stringify(form))
@@ -142,7 +142,6 @@ export class ArticleRepository {
               'Данные запроса изменились. Обновите список статей.',
               409,
             );
-          this.db.exec('COMMIT');
           return this.record(retry);
         }
       }
@@ -202,12 +201,8 @@ export class ArticleRepository {
         .run(slug, articleId);
       this.syncImages(articleId, form);
       const saved = this.get(articleId)!;
-      this.db.exec('COMMIT');
       return saved;
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
   remove(id: string, revision: number) {
     const article = this.get(id);
@@ -221,8 +216,7 @@ export class ArticleRepository {
       throw new ArticleError('Статья уже изменена. Обновите список.', 409);
   }
   addImage(bytes: Buffer, width: number, height: number) {
-    this.db.exec('BEGIN IMMEDIATE');
-    try {
+    return inImmediateTransaction(this.db, () => {
       const used = this.db
         .prepare('SELECT COALESCE(SUM(size),0) AS size FROM article_images')
         .get() as { size: number };
@@ -243,12 +237,8 @@ export class ArticleRepository {
           createHash('sha256').update(bytes).digest('hex'),
           new Date().toISOString(),
         );
-      this.db.exec('COMMIT');
       return { url: '/media/articles/' + id + '.webp', width, height };
-    } catch (error) {
-      this.db.exec('ROLLBACK');
-      throw error;
-    }
+    });
   }
   imageMetadata(id: string) {
     return this.db

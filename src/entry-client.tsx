@@ -9,6 +9,7 @@ import './styles/questionnaire.css';
 import './styles/update.css';
 import './styles/articles.css';
 import './styles/admin-shell.css';
+import './styles/cookie-notice.css';
 
 const root = document.getElementById('root');
 const element = document.getElementById('page-data');

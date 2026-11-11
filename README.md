@@ -62,7 +62,7 @@ Next.js, Vinext, React Server Components, Cloudflare Workers, D1 и служеб
 - один H1, иерархия заголовков и все 17 смысловых блоков;
 - title, description, canonical, Open Graph и изображения OG;
 - JSON-LD Organization, Service/Offer и FAQPage;
-- отдельные адреса /privacy/ и /personal-data/;
+- отдельные адреса /privacy/, /personal-data/ и /oferta/;
 - динамические /robots.txt и /sitemap.xml;
 - noindex для админки, юридических страниц и страницы 404;
 - настоящий HTTP 404 для отсутствующих адресов и ресурсов;
@@ -73,7 +73,7 @@ Next.js, Vinext, React Server Components, Cloudflare Workers, D1 и служеб
 
 Публичные URL с параметрами доступны для обхода: UTM и выбор услуги/объекта не входят в canonical, страницы пагинации блога имеют собственный canonical, поиск и категории блога сохраняют noindex. Префиксы `/admin` и `/api` закрыты независимо от query. Подробная политика и примеры: [docs/ROBOTS-PARAMETERS.md](docs/ROBOTS-PARAMETERS.md).
 
-Контент главной, общий каталог услуг и цен, контакты и вопросы берутся из src/content/home.json. Тексты страницы /akt-obsledovaniya-osi/ — из src/content/survey.json. Цены акта подставляются из общего каталога во все коммерческие блоки, FAQ, SEO и schema.org. Тексты юридических страниц — из src/content/legal.json. После изменения этих файлов production-версию нужно пересобрать и перезапустить. Проверка структуры выполняется при запуске и при npm run check.
+Контент главной, общий каталог услуг и цен, контакты и вопросы берутся из src/content/home.json. Тексты страницы /akt-obsledovaniya-osi/ — из src/content/survey.json. Цены акта подставляются из общего каталога во все коммерческие блоки, FAQ, SEO и schema.org. Тексты политики, согласия и публичной оферты — из src/content/legal.json. Cookie-уведомление и порядок работы документов описаны в [docs/LEGAL-COOKIES.md](docs/LEGAL-COOKIES.md). После изменения этих файлов production-версию нужно пересобрать и перезапустить. Проверка структуры выполняется при запуске и при npm run check.
 
 Старые сохранённые записи content_entries, если они остались в SQLite после прежней версии, больше не читаются. В частности, прежнее значение indexing=false не может закрыть главную от поиска. API редактирования контента удалён. Уже сохранённые заявки продолжают читаться из существующей базы.
 

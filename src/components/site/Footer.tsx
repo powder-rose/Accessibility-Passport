@@ -38,6 +38,7 @@ export default function Footer({
           <div>
             <a href="/#requisites">Реквизиты компании</a>
             <a href="/privacy/">Политика конфиденциальности</a>
+            <a href="/oferta/">Публичная оферта</a>
             <a href="/personal-data/">
               Согласие на обработку персональных данных
             </a>

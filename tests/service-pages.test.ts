@@ -264,6 +264,7 @@ test('survey links lead only to published pages or live local actions; the main 
     routes.update,
     '/privacy/',
     '/personal-data/',
+    '/oferta/',
     '/blog/',
   ]);
   for (const href of links) {
@@ -538,6 +539,7 @@ test('published questionnaire links connect the home and act pages without fake 
     ...Object.values(routes),
     '/privacy/',
     '/personal-data/',
+    '/oferta/',
     '/blog/',
   ]);
   for (const [, href] of html.matchAll(/href="([^"]+)"/g)) {

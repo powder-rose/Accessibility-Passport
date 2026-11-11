@@ -26,7 +26,7 @@ src/lib/routes.ts хранит опубликованные маршруты и 
 
 Заявка сохраняет контактные данные, service, initialService, sourcePage, pageUrl, objectType, UTM, исходные вопросы и ответы. API определяет фактическую услугу квиза по ответам, а исходную — по зарегистрированному пути страницы. Сохраняются защита формы, ограничения частоты запросов и идемпотентность.
 
-Подключены общие события commercial_click, express_check_start, express_check_step_N, express_check_submit и lead_submit. Реальный ID Метрики задаётся в site.metrikaId файла src/content/home.json; в предоставленном проекте он не заполнен. Контактные данные в события не передаются.
+Подключены общие события commercial_click, express_check_start, express_check_step_N, express_check_submit и lead_submit. В site.metrikaId файла src/content/home.json задан счётчик 114185674; общий серверный bootstrap подключает его до React. Подробнее — [METRIKA.md](METRIKA.md). Контактные данные в события не передаются.
 
 ## Проверка и обновление
 

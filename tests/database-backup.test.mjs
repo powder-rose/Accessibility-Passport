@@ -92,7 +92,9 @@ function fixture(t) {
   writer
     .prepare('INSERT INTO article_image_refs VALUES (?, ?)')
     .run('article', imageId);
-  store.setAttachmentLimits(store.getAttachmentLimits());
+  writer
+    .prepare('INSERT INTO upload_settings VALUES (1, ?)')
+    .run(JSON.stringify(store.getAttachmentLimits()));
   writer
     .prepare('INSERT INTO rate_limits VALUES (?, ?, ?)')
     .run('rate', 3, 100);

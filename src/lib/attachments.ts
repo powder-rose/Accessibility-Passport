@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 export const MiB = 1024 * 1024;
 export const attachmentKinds = ['passport', 'survey', 'questionnaire'] as const;
 export type AttachmentKind = (typeof attachmentKinds)[number];
@@ -16,30 +14,17 @@ export const attachmentExtensions = [
   'jpeg',
   'png',
 ] as const;
-export const attachmentLimitsSchema = z
-  .object({
-    maxFiles: z.number().int().min(1).max(10),
-    maxFileBytes: z
-      .number()
-      .int()
-      .min(MiB)
-      .max(10 * MiB),
-    maxTotalBytes: z
-      .number()
-      .int()
-      .min(MiB)
-      .max(30 * MiB),
-  })
-  .refine(
-    (limits) => limits.maxTotalBytes >= limits.maxFileBytes,
-    'Общий размер должен быть не меньше размера одного файла.',
-  );
-export type AttachmentLimits = z.infer<typeof attachmentLimitsSchema>;
-export const defaultAttachmentLimits: AttachmentLimits = {
-  maxFiles: 6,
-  maxFileBytes: 5 * MiB,
-  maxTotalBytes: 20 * MiB,
-};
+export interface AttachmentLimits {
+  maxFiles: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+}
+export const defaultAttachmentLimits: Readonly<AttachmentLimits> =
+  Object.freeze({
+    maxFiles: 6,
+    maxFileBytes: 5 * MiB,
+    maxTotalBytes: 20 * MiB,
+  });
 export interface AttachmentMetadata {
   id: string;
   kind: AttachmentKind;

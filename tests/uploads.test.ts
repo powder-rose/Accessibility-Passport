@@ -287,44 +287,42 @@ test('file count, format, per-file and overall limits fail clearly without creat
   assert.equal(application.store.listLeads().length, base);
 });
 
-test('administrator can change limits with same-origin authentication and settings persist after restart', async () => {
+test('attachment settings are removed and legacy values cannot change fixed limits after restart', async () => {
   const value = { maxFiles: 2, maxFileBytes: MiB, maxTotalBytes: 2 * MiB };
-  assert.equal(
-    (await json('/api/admin/attachment-settings', value, 'PUT')).status,
-    401,
-  );
-  assert.equal(
-    (
-      await request('/api/admin/attachment-settings', {
-        method: 'PUT',
-        headers: {
-          Origin: 'https://other.invalid',
-          Cookie: cookie,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(value),
-      })
-    ).status,
-    403,
-  );
-  assert.equal(
-    (
-      await json(
-        '/api/admin/attachment-settings',
-        { ...value, maxFiles: 11 },
-        'PUT',
-        true,
+  const database = new DatabaseSync(filename);
+  try {
+    database
+      .prepare(
+        'INSERT INTO upload_settings VALUES (1,?) ON CONFLICT(id) DO UPDATE SET settings=excluded.settings',
       )
-    ).status,
-    400,
-  );
-  assert.equal(
-    (await json('/api/admin/attachment-settings', value, 'PUT', true)).status,
-    200,
-  );
+      .run(JSON.stringify(value));
+  } finally {
+    database.close();
+  }
+  for (const authenticated of [false, true]) {
+    assert.equal(
+      (
+        await json(
+          '/api/admin/attachment-settings',
+          value,
+          'PUT',
+          authenticated,
+        )
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await request('/api/admin/attachment-settings', {
+          headers: authenticated ? { Cookie: cookie } : {},
+        })
+      ).status,
+      404,
+    );
+  }
   assert.deepEqual(
     await (await request('/api/attachment-limits')).json(),
-    value,
+    defaultAttachmentLimits,
   );
   assert.equal(
     (
@@ -333,13 +331,13 @@ test('administrator can change limits with same-origin authentication and settin
         Array.from({ length: 3 }, (_, i) => ({ name: `${i}.pdf`, bytes: pdf })),
       )
     ).status,
-    413,
+    200,
   );
   await stop();
   await start();
   assert.deepEqual(
     await (await request('/api/attachment-limits')).json(),
-    value,
+    defaultAttachmentLimits,
   );
   const saved = application.store.listLeads()[0].payload.attachments as {
     id: string;
@@ -354,7 +352,6 @@ test('administrator can change limits with same-origin authentication and settin
     ),
     pdf,
   );
-  application.store.setAttachmentLimits(defaultAttachmentLimits);
 });
 
 test('update quiz preserves five themed answers without age-based legal conclusions or numeric prices', async () => {

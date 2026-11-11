@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   attachmentKinds,
   attachmentLabels,
-  attachmentLimitsSchema,
   attachmentSelectionError,
   defaultAttachmentLimits,
   MiB,
@@ -22,22 +21,11 @@ export default function DocumentAttachments({
   disabled: boolean;
   metrikaId: string;
 }) {
-  const [limits, setLimits] = useState(defaultAttachmentLimits);
+  const limits = defaultAttachmentLimits;
   const [error, setError] = useState('');
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch('/api/attachment-limits', { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const result = attachmentLimitsSchema.safeParse(await response.json());
-        if (result.success) setLimits(result.data);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
   return (
     <fieldset
-      className="document-attachments"
+      className="document-attachments ym-hide-content"
       id="document-attachments"
       disabled={disabled}
     >

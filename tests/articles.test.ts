@@ -528,7 +528,7 @@ test('unpublishing closes article and image access; deletion removes public list
   assert.equal((await collision.json()).article.slug, article.slug + '-2');
 });
 
-test('migration from schema 2 preserves leads, attachments and limits while adding article storage', () => {
+test('migration from schema 2 preserves leads, attachments and legacy settings while using fixed upload limits', () => {
   const path = join(directory, 'legacy-v2.sqlite');
   const db = new DatabaseSync(path);
   db.exec(initialSchema + ';' + attachmentSchema + '; PRAGMA user_version=2');
@@ -561,7 +561,7 @@ test('migration from schema 2 preserves leads, attachments and limits while addi
   db.close();
   const store = new Store(path);
   assert.equal(store.listLeads()[0].payload.name, 'Старая заявка');
-  assert.equal(store.getAttachmentLimits().maxFiles, 2);
+  assert.equal(store.getAttachmentLimits().maxFiles, 6);
   assert.equal(
     Buffer.from(store.getAttachment(oldFile)!.bytes).toString(),
     'test',
@@ -569,6 +569,18 @@ test('migration from schema 2 preserves leads, attachments and limits while addi
   assert.equal(store.articles.list().length, 0);
   store.close();
   const migrated = new DatabaseSync(path);
+  assert.equal(
+    JSON.parse(
+      (
+        migrated
+          .prepare('SELECT settings FROM upload_settings WHERE id=1')
+          .get() as {
+          settings: string;
+        }
+      ).settings,
+    ).maxFiles,
+    2,
+  );
   assert.equal(
     (migrated.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,

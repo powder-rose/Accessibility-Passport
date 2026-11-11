@@ -19,6 +19,7 @@ export default function ContactFields({
           <input
             id={`${prefix}-name`}
             name="name"
+            className="ym-disable-keys"
             defaultValue={defaults?.name}
             autoComplete="name"
             required
@@ -31,6 +32,7 @@ export default function ContactFields({
           <input
             id={`${prefix}-phone`}
             name="phone"
+            className="ym-disable-keys"
             defaultValue={defaults?.phone}
             type="tel"
             autoComplete="tel"
@@ -54,6 +56,7 @@ export default function ContactFields({
         <input
           id={`${prefix}-email`}
           name="email"
+          className="ym-disable-keys"
           defaultValue={defaults?.email}
           type="email"
           autoComplete="email"

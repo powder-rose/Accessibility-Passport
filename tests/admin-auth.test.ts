@@ -267,7 +267,7 @@ test('logout revokes copies of the current session while another login remains v
     '/api/admin/session',
     '/api/admin/leads',
     '/api/admin/articles',
-    '/api/admin/attachment-settings',
+    '/api/admin/statistics',
     path,
   ]) {
     const denied = await app.request(endpoint, { headers: { Cookie: first } });

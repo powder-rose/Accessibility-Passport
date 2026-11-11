@@ -1,6 +1,8 @@
 import LeadList from './LeadList';
 import AttachmentSettings from './AttachmentSettings';
 import { useLeadPages } from './useLeadPages';
+import StatisticsPanel from './statistics/StatisticsPanel';
+import '@/styles/admin-statistics.css';
 
 export default function LeadDashboard({
   error,
@@ -12,7 +14,9 @@ export default function LeadDashboard({
   const list = useLeadPages(onSessionExpired);
   return (
     <section>
-      <h1 className="cms-section-title">Заявки</h1>
+      <h1 className="cms-section-title">Заявки и статистика</h1>
+      <StatisticsPanel onSessionExpired={onSessionExpired} />
+      <h2 className="cms-leads-heading">История заявок</h2>
       <AttachmentSettings />
       {error && (
         <p className="form-error" role="alert">

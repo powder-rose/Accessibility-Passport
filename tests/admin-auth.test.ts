@@ -556,7 +556,7 @@ test('backups exclude live sessions without logging out the source and restored 
   const cookie = await app.cookie();
   const snapshot = join(app.directory, 'snapshot');
   const backup = await createBackup(app.config.databasePath, snapshot);
-  assert.equal(backup.schemaVersion, 4);
+  assert.equal(backup.schemaVersion, 5);
   assert.equal(backup.counts.admin_sessions, 0);
   assert.equal(backup.counts.admin_credentials, 1);
   assert.equal(
@@ -651,7 +651,7 @@ test('schema-3 snapshots still restore and migrate while preserving saved leads'
   seed.close();
   const database = new DatabaseSync(filename);
   database.exec(
-    'DROP TABLE admin_sessions; DROP TABLE admin_credentials; PRAGMA user_version=3;',
+    'DROP TABLE analytics_pageviews; DROP TABLE analytics_visits; DROP TABLE admin_sessions; DROP TABLE admin_credentials; PRAGMA user_version=3;',
   );
   database.close();
   const snapshot = join(directory, 'old-snapshot');

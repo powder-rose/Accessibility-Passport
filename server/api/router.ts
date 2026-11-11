@@ -13,9 +13,12 @@ import { jsonError } from './security';
 import * as attachments from './attachments';
 import { articleEndpoint } from '../articles/api';
 import * as storage from './storage';
+import * as statistics from './statistics';
 
 const endpoints: Record<string, Record<string, ApiHandler>> = {
   '/api/leads': { POST: leads.POST },
+  '/api/analytics/pageview': { POST: statistics.pageview },
+  '/api/admin/statistics': { GET: statistics.report },
   '/api/admin/login': { POST: login.POST, DELETE: login.DELETE },
   '/api/admin/leads': { GET: adminLeads.GET },
   '/api/admin/session': { GET: adminLeads.SESSION },

@@ -2018,13 +2018,8 @@ input::placeholder {
   margin-block: 15px;
 }
 .cms-lead summary {
-  font-size: 13px;
+  font-size: 15px;
   cursor: pointer;
-}
-.cms-lead pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: 11px;
 }
 /* Motion */
 @keyframes reveal-in {

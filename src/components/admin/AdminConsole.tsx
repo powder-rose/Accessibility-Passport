@@ -9,7 +9,7 @@ import AdminLayout from './AdminLayout';
 const ArticlesWorkspace = lazy(() => import('./articles/ArticlesWorkspace'));
 
 import AdminLogin from './AdminLogin';
-import LeadDashboard from './LeadDashboard';
+const LeadDashboard = lazy(() => import('./LeadDashboard'));
 
 export default function AdminConsole({
   path = '/admin/',
@@ -113,7 +113,9 @@ export default function AdminConsole({
           {workspace}
         </>
       ) : (
-        <LeadDashboard error={error} onSessionExpired={sessionExpired} />
+        <Suspense fallback={<p role="status">Загрузка заявок и статистики…</p>}>
+          <LeadDashboard error={error} onSessionExpired={sessionExpired} />
+        </Suspense>
       )}
     </AdminLayout>
   );

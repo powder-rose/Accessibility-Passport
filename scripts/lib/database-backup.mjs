@@ -29,6 +29,7 @@ const tables = [
   'article_image_refs',
 ];
 const authTables = ['admin_credentials', 'admin_sessions'];
+const statisticsTables = ['analytics_visits', 'analytics_pageviews'];
 
 export class RecoveryError extends Error {}
 
@@ -46,7 +47,7 @@ function openDatabase(filename) {
 
 function checkVersion(database) {
   const version = database.prepare('PRAGMA user_version').get().user_version;
-  if (![3, 4].includes(version))
+  if (![3, 4, 5].includes(version))
     throw new RecoveryError(
       'Unsupported database schema; use matching application code.',
     );
@@ -68,15 +69,16 @@ function inspectDatabase(filename) {
     if (database.prepare('PRAGMA foreign_key_check').all().length)
       throw new RecoveryError('Database foreign key check failed.');
     const counts = Object.fromEntries(
-      (schemaVersion === 4 ? [...tables, ...authTables] : tables).map(
-        (table) => [
-          table,
-          database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()
-            .count,
-        ],
-      ),
+      [
+        ...tables,
+        ...(schemaVersion >= 4 ? authTables : []),
+        ...(schemaVersion >= 5 ? statisticsTables : []),
+      ].map((table) => [
+        table,
+        database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
+      ]),
     );
-    if (schemaVersion === 4 && counts.admin_sessions !== 0)
+    if (schemaVersion >= 4 && counts.admin_sessions !== 0)
       throw new RecoveryError(
         'Snapshots must not contain active administrator sessions.',
       );
@@ -150,7 +152,7 @@ export async function createBackup(databasePath, destination) {
     // Convert the snapshot to a self-contained file; never checkpoint the source.
     const snapshot = new DatabaseSync(pending, { timeout: 5000 });
     try {
-      if (checkVersion(snapshot) === 4)
+      if (checkVersion(snapshot) >= 4)
         snapshot.exec('PRAGMA trusted_schema=OFF; DELETE FROM admin_sessions;');
       const mode = snapshot.prepare('PRAGMA journal_mode=DELETE').get();
       if (mode.journal_mode !== 'delete')
@@ -203,7 +205,7 @@ export async function verifyBackup(snapshotPath) {
   if (
     !manifest ||
     manifest.formatVersion !== 1 ||
-    ![3, 4].includes(manifest.schemaVersion) ||
+    ![3, 4, 5].includes(manifest.schemaVersion) ||
     typeof manifest.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(manifest.createdAt)) ||
     !Number.isSafeInteger(manifest.size) ||

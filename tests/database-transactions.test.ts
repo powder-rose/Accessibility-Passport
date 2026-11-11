@@ -108,7 +108,7 @@ test('a failed migration preserves its original error, schema version and preexi
     assert.equal(
       (db.prepare('PRAGMA user_version').get() as { user_version: number })
         .user_version,
-      4,
+      5,
     );
   } finally {
     retried.close();
@@ -462,7 +462,7 @@ test('lead attachments remain atomic and duplicate early returns commit cleanly 
   assert.equal(
     (db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
-    4,
+    5,
   );
   assert.equal(store.findLeadHash('synthetic-lead'), 'synthetic-hash');
   assert.equal(store.listLeadPage({ limit: 10 }).total, 2);

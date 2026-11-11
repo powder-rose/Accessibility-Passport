@@ -19,6 +19,11 @@ export function apiBody(
     limit: '1mb',
     inflate: false,
   });
+  const statisticsBody = express.raw({
+    type: () => true,
+    limit: '2kb',
+    inflate: false,
+  });
   return async (req, res, next) => {
     const path = req.originalUrl.split('?')[0].replace(/\/$/, '');
     const articleImage = path === '/api/admin/article-images';
@@ -27,11 +32,11 @@ export function apiBody(
       (path === '/api/leads' || articleImage) &&
       req.get('content-type')?.toLowerCase().startsWith('multipart/form-data;');
     if (!isUpload) {
-      (path.startsWith('/api/admin/articles') ? articleBody : jsonBody)(
-        req,
-        res,
-        next,
-      );
+      (path === '/api/analytics/pageview'
+        ? statisticsBody
+        : path.startsWith('/api/admin/articles')
+          ? articleBody
+          : jsonBody)(req, res, next);
       return;
     }
     const origin = config.appOrigin || req.protocol + '://' + req.get('host');

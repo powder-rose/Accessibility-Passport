@@ -7,8 +7,18 @@ import NotFoundPage from './pages/NotFoundPage';
 import UpdatePage from './pages/UpdatePage';
 import BlogPage from './pages/BlogPage';
 import ArticlePage from './pages/ArticlePage';
+import CookieNotice from './components/site/CookieNotice';
 
 export default function App(data: PageData) {
+  return (
+    <>
+      <PageContent {...data} />
+      {data.route !== 'admin' && data.route !== 'not-found' && <CookieNotice />}
+    </>
+  );
+}
+
+function PageContent(data: PageData) {
   switch (data.route) {
     case 'home':
       return (

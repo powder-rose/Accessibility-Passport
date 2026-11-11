@@ -78,26 +78,31 @@ export function Consent({
   defaultChecked?: boolean;
 }) {
   return (
-    <label className="consent" htmlFor={`${prefix}-consent`}>
-      <input
-        id={`${prefix}-consent`}
-        name="consent"
-        type="checkbox"
-        required
-        defaultChecked={defaultChecked}
-      />
-      <span>
-        Даю{' '}
-        <a href="/personal-data/" target="_blank" rel="noopener">
-          согласие на обработку персональных данных
-        </a>{' '}
-        и принимаю{' '}
+    <>
+      <label className="consent" htmlFor={`${prefix}-consent`}>
+        <input
+          id={`${prefix}-consent`}
+          name="consent"
+          type="checkbox"
+          required
+          defaultChecked={defaultChecked}
+        />
+        <span>
+          Даю{' '}
+          <a href="/personal-data/" target="_blank" rel="noopener">
+            согласие на обработку персональных данных
+          </a>
+          .
+        </span>
+      </label>
+      <p className="consent-policy">
+        Обработка данных описана в{' '}
         <a href="/privacy/" target="_blank" rel="noopener">
-          политику конфиденциальности
+          политике конфиденциальности
         </a>
         .
-      </span>
-    </label>
+      </p>
+    </>
   );
 }
 export function formContacts(form: HTMLFormElement) {

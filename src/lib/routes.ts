@@ -28,6 +28,7 @@ const publishedPaths = new Set<string>([
   '/blog/',
   '/privacy/',
   '/personal-data/',
+  '/oferta/',
 ]);
 export function publishedHref(value?: string) {
   if (!value) return undefined;

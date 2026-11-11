@@ -458,7 +458,7 @@ test('schema v1 migration preserves old leads and private uploads commit togethe
   assert.equal(
     (migrated.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
-    4,
+    5,
   );
   migrated.close();
 });

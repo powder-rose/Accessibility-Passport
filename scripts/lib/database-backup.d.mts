@@ -2,7 +2,7 @@ export class RecoveryError extends Error {}
 export interface BackupMetadata {
   directory: string;
   formatVersion: 1;
-  schemaVersion: 3 | 4;
+  schemaVersion: 3 | 4 | 5;
   createdAt: string;
   size: number;
   sha256: string;

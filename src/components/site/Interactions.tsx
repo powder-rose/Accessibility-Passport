@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { track, initializeMetrika } from '@/lib/analytics';
+import { track } from '@/lib/analytics';
 export default function Interactions({ metrikaId }: { metrikaId: string }) {
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -102,7 +102,6 @@ export default function Interactions({ metrikaId }: { metrikaId: string }) {
         track(a.dataset.goal, location.pathname, metrikaId);
     };
     document.addEventListener('click', handleClick);
-    initializeMetrika(metrikaId);
     return () => {
       observer.disconnect();
       document.removeEventListener('click', handleClick);

@@ -24,7 +24,7 @@ src/pages/DocumentServicePage.tsx собирает страницу из неб�
 
 В заявке сохраняются pageUrl, sourcePage, initialService, фактически выбранный service, objectType, UTM, исходные вопросы и ответы. Сервер определяет услугу экспресс-проверки по ответам, поэтому изменение выбора не теряется и исходный survey не подменяет окончательный выбор. Кнопка полного комплекса ведёт на основную услугу с выбранным full.
 
-Подключены общие события commercial_click, express_check_start, express_check_step_N, express_check_submit и lead_submit. Реальный ID Метрики задаётся в site.metrikaId общего файла src/content/home.json; он пока не предоставлен. Контактные данные в события не отправляются.
+Подключены общие события commercial_click, express_check_start, express_check_step_N, express_check_submit и lead_submit. В site.metrikaId файла src/content/home.json задан счётчик 114185674; общий серверный bootstrap подключает его до React. Подробнее — [METRIKA.md](METRIKA.md). Контактные данные в события не отправляются.
 
 ## Границы услуги и ссылки
 

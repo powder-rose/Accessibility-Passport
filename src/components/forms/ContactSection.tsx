@@ -166,6 +166,7 @@ export default function ContactSection({
                 {commentLabel}
                 <textarea
                   name="comment"
+                  className="ym-disable-keys"
                   id="contact-comment"
                   rows={3}
                   maxLength={3000}

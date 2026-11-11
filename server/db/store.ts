@@ -3,7 +3,6 @@ import { mkdirSync, chmodSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { initialSchema, attachmentSchema } from './migrations';
 import {
-  attachmentLimitsSchema,
   defaultAttachmentLimits,
   type AttachmentLimits,
 } from '../../src/lib/attachments';
@@ -126,21 +125,7 @@ export class Store {
     });
   }
   getAttachmentLimits(): AttachmentLimits {
-    const row = this.db
-      .prepare('SELECT settings FROM upload_settings WHERE id=1')
-      .get() as { settings: string } | undefined;
-    return row
-      ? attachmentLimitsSchema.parse(JSON.parse(row.settings))
-      : { ...defaultAttachmentLimits };
-  }
-  setAttachmentLimits(limits: AttachmentLimits) {
-    const valid = attachmentLimitsSchema.parse(limits);
-    this.db
-      .prepare(
-        'INSERT INTO upload_settings (id,settings) VALUES (1,?) ON CONFLICT(id) DO UPDATE SET settings=excluded.settings',
-      )
-      .run(JSON.stringify(valid));
-    return valid;
+    return { ...defaultAttachmentLimits };
   }
   getAttachment(id: string) {
     return this.db

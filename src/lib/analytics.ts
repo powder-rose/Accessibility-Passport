@@ -14,36 +14,14 @@ type EventName =
   | 'document_file_selected'
   | 'document_upload_success'
   | `express_check_step_${number}`;
-type Metrika = ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
+type Metrika = ((...args: unknown[]) => void) & {
+  a?: ArrayLike<unknown>[];
+  l?: number;
+};
 declare global {
   interface Window {
     ym?: Metrika;
     dataLayer?: Record<string, string>[];
-  }
-}
-export function initializeMetrika(id: string) {
-  if (!/^\d+$/.test(id)) return;
-  if (!window.ym) {
-    const queue: Metrika = (...args) => {
-      queue.a = queue.a || [];
-      queue.a.push(args);
-    };
-    queue.l = Date.now();
-    window.ym = queue;
-  }
-  window.ym(Number(id), 'init', {
-    clickmap: true,
-    trackLinks: true,
-    accurateTrackBounce: true,
-    webvisor: false,
-  });
-  if (
-    !document.querySelector('script[src="https://mc.yandex.ru/metrika/tag.js"]')
-  ) {
-    const script = document.createElement('script');
-    script.src = 'https://mc.yandex.ru/metrika/tag.js';
-    script.async = true;
-    document.head.appendChild(script);
   }
 }
 export function track(name: EventName, page: string, metrikaId: string) {

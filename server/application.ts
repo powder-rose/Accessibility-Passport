@@ -13,6 +13,7 @@ import { healthHandler } from './health';
 import { configureAdmin } from './auth/service';
 import { Diagnostics } from './diagnostics';
 import { validateDomainConfiguration } from './origin';
+import { metrikaMarkup } from './metrika';
 
 export async function createApplication(config: Config) {
   validateDomainConfiguration(config, getSiteContent());
@@ -139,8 +140,11 @@ export async function createApplication(config: Config) {
       );
       if (vite)
         template = await vite.transformIndexHtml(req.originalUrl, template);
+      const metrika = metrikaMarkup(data);
       const html = template
         .replace('<!--app-head-->', () => buildHead(data, url.pathname))
+        .replace('<!--app-metrika-head-->', () => metrika.head)
+        .replace('<!--app-metrika-body-->', () => metrika.body)
         .replace('<!--app-html-->', () => renderer.render(data))
         .replace('<!--app-data-->', () => scriptJson(data));
       res

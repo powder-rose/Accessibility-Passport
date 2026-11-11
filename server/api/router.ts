@@ -25,10 +25,6 @@ const endpoints: Record<string, Record<string, ApiHandler>> = {
   '/api/admin/storage': { GET: storage.report },
   '/api/admin/storage/cleanup': { GET: storage.preview, POST: storage.cleanup },
   '/api/attachment-limits': { GET: attachments.limits },
-  '/api/admin/attachment-settings': {
-    GET: attachments.settings,
-    PUT: attachments.settings,
-  },
 };
 export function apiRouter(
   config: Config,

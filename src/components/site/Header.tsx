@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SiteContent } from '@/lib/content-types';
 import { Arrow } from './primitives';
+import HeaderDirectory from './HeaderDirectory';
 const links = [
   ['/#documents', 'Документы'],
   ['/#objects', 'Для кого'],
@@ -16,26 +17,38 @@ export default function Header({
   contactHref?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const menu = useRef<HTMLElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
+  const directoryToggle = useRef<HTMLButtonElement>(null);
+  function closeMenus() {
+    setOpen(false);
+    setDirectoryOpen(false);
+  }
   useEffect(() => {
-    if (!open) return;
+    if (!open && !directoryOpen) return;
     function close(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setOpen(false);
-        toggle.current?.focus();
+        setDirectoryOpen(false);
+        (open ? toggle : directoryToggle).current?.focus();
       }
     }
-    function outside(e: PointerEvent) {
-      if (!menu.current?.contains(e.target as Node)) setOpen(false);
+    function outside(e: Event) {
+      if (!menu.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setDirectoryOpen(false);
+      }
     }
     document.addEventListener('keydown', close);
     document.addEventListener('pointerdown', outside);
+    document.addEventListener('focusin', outside);
     return () => {
       document.removeEventListener('keydown', close);
       document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('focusin', outside);
     };
-  }, [open]);
+  }, [open, directoryOpen]);
   return (
     <header className="site-header" ref={menu}>
       <div className="container header-inner">
@@ -49,15 +62,17 @@ export default function Header({
           className={open ? 'navigation is-open' : 'navigation'}
         >
           {links.map(([href, label]) => (
-            <a key={href} href={href} onClick={() => setOpen(false)}>
+            <a key={href} href={href} onClick={closeMenus}>
               {label}
             </a>
           ))}
-          <a
-            className="mobile-contact"
-            href={contactHref}
-            onClick={() => setOpen(false)}
-          >
+          <HeaderDirectory
+            open={directoryOpen}
+            toggleRef={directoryToggle}
+            onToggle={() => setDirectoryOpen(!directoryOpen)}
+            onNavigate={closeMenus}
+          />
+          <a className="mobile-contact" href={contactHref} onClick={closeMenus}>
             Обсудить объект
           </a>
         </nav>
@@ -75,11 +90,15 @@ export default function Header({
         </div>
         <button
           ref={toggle}
+          type="button"
           className="menu-toggle"
           aria-expanded={open}
           aria-controls="main-navigation"
           aria-label={open ? 'Закрыть меню' : 'Открыть меню'}
-          onClick={() => setOpen(!open)}
+          onClick={() => {
+            setOpen(!open);
+            setDirectoryOpen(false);
+          }}
         >
           <span />
           <span />

@@ -261,6 +261,7 @@ test('survey links lead only to published pages or live local actions; the main 
     '/',
     routes.survey,
     routes.questionnaire,
+    routes.update,
     '/privacy/',
     '/personal-data/',
     '/blog/',
@@ -280,6 +281,10 @@ test('survey links lead only to published pages or live local actions; the main 
   assert.ok(!links.some((href) => /\.docx?$|\.pdf$|\/blog\/.+/.test(href)));
   const home = await (await request('/')).text();
   assert.ok(home.includes('href="' + routes.survey + '"'));
+  assert.equal(
+    (await request(routes.update, { redirect: 'manual' })).status,
+    200,
+  );
   assert.equal(publishedHref('/unpublished-industry/'), undefined);
 });
 

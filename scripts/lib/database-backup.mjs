@@ -47,7 +47,7 @@ function openDatabase(filename) {
 
 function checkVersion(database) {
   const version = database.prepare('PRAGMA user_version').get().user_version;
-  if (![3, 4, 5].includes(version))
+  if (![3, 4, 5, 6].includes(version))
     throw new RecoveryError(
       'Unsupported database schema; use matching application code.',
     );
@@ -73,6 +73,7 @@ function inspectDatabase(filename) {
         ...tables,
         ...(schemaVersion >= 4 ? authTables : []),
         ...(schemaVersion >= 5 ? statisticsTables : []),
+        ...(schemaVersion >= 6 ? ['ai_materials'] : []),
       ].map((table) => [
         table,
         database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
@@ -205,7 +206,7 @@ export async function verifyBackup(snapshotPath) {
   if (
     !manifest ||
     manifest.formatVersion !== 1 ||
-    ![3, 4, 5].includes(manifest.schemaVersion) ||
+    ![3, 4, 5, 6].includes(manifest.schemaVersion) ||
     typeof manifest.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(manifest.createdAt)) ||
     !Number.isSafeInteger(manifest.size) ||

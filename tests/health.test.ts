@@ -203,7 +203,7 @@ test('schema drift is unhealthy and readiness recovers after the database is rep
   try {
     writer.exec('PRAGMA user_version=999');
     assert.equal((await request('/healthz')).status, 503);
-    writer.exec('PRAGMA user_version=5');
+    writer.exec('PRAGMA user_version=6');
     assert.equal((await request('/healthz')).status, 200);
   } finally {
     writer.close();

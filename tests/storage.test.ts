@@ -114,7 +114,7 @@ test('storage reports exact separate quotas without file bodies and preserves th
     attachments: { bytes: pdf.length, count: 1, limit: 512 * 1024 * 1024 },
     images: { bytes: bytes.length, count: 1, limit: 256 * 1024 * 1024 },
   });
-  assert.equal(f.db.prepare('PRAGMA user_version').get()!.user_version, 5);
+  assert.equal(f.db.prepare('PRAGMA user_version').get()!.user_version, 6);
   const reopened = new Store(f.filename);
   try {
     assert.deepEqual(reopened.storage.report(), report);
@@ -254,7 +254,7 @@ test('backup made before cleanup can restore images and linked articles without 
   const article = f.article(keep.id);
   const attachment = f.attachment();
   const snapshot = join(f.directory, 'snapshot');
-  assert.equal((await createBackup(f.filename, snapshot)).schemaVersion, 5);
+  assert.equal((await createBackup(f.filename, snapshot)).schemaVersion, 6);
   f.store.storage.cleanup([remove]);
   const restored = await restoreBackup(snapshot, join(f.directory, 'restored'));
   const store = new Store(restored.databasePath);

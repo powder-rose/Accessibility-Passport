@@ -20,6 +20,10 @@ import { inImmediateTransaction } from './transaction';
 import { statisticsSchema } from '../statistics/migration';
 import { StatisticsQueries } from '../statistics/queries';
 import { TrafficRepository } from '../statistics/traffic';
+import {
+  aiMaterialsSchema,
+  AiMaterialsRepository,
+} from '../ai/materials-repository';
 
 export class Store {
   private readonly db: DatabaseSync;
@@ -28,6 +32,7 @@ export class Store {
   readonly storage: StorageRepository;
   readonly statistics: StatisticsQueries;
   readonly traffic: TrafficRepository;
+  readonly aiMaterials: AiMaterialsRepository;
   constructor(filename: string) {
     if (filename !== ':memory:')
       mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
@@ -37,7 +42,7 @@ export class Store {
     const version = this.db.prepare('PRAGMA user_version').get() as {
       user_version: number;
     };
-    if (version.user_version > 5)
+    if (version.user_version > 6)
       throw new Error('Unsupported database schema version.');
     if (version.user_version === 0) {
       inImmediateTransaction(this.db, () => {
@@ -69,11 +74,18 @@ export class Store {
         this.db.exec('PRAGMA user_version=5');
       });
     }
+    if (version.user_version < 6) {
+      inImmediateTransaction(this.db, () => {
+        this.db.exec(aiMaterialsSchema);
+        this.db.exec('PRAGMA user_version=6');
+      });
+    }
     this.articles = new ArticleRepository(this.db);
     this.auth = new AdminRepository(this.db);
     this.storage = new StorageRepository(this.db);
     this.statistics = new StatisticsQueries(this.db);
     this.traffic = new TrafficRepository(this.db);
+    this.aiMaterials = new AiMaterialsRepository(this.db);
   }
   findLeadHash(id: string) {
     const row = this.db
@@ -187,7 +199,7 @@ export class Store {
   }
   isAvailable(): boolean {
     try {
-      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 5)
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 6)
         return false;
       for (const table of [
         'leads',
@@ -202,6 +214,7 @@ export class Store {
         'admin_sessions',
         'analytics_visits',
         'analytics_pageviews',
+        'ai_materials',
       ]) {
         // Read a bounded amount of real data, without copying BLOBs or writing.
         this.db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get();

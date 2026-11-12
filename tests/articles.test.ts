@@ -584,7 +584,7 @@ test('migration from schema 2 preserves leads, attachments and legacy settings w
   assert.equal(
     (migrated.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
-    5,
+    6,
   );
   migrated.close();
 });

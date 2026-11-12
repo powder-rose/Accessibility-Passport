@@ -242,6 +242,7 @@ test('structured output validates metadata, sanitizes the HTML and preserves uns
   assert.equal(result.metadata.clusterTopic, 'Доступность входной группы');
   assert.equal(result.metadata.slug, 'sample-slug');
   assert.equal(result.metadata.imageAlt, 'Обложка');
+  assert.equal(result.metadata.category, '');
   assert.deepEqual(result.metadata.inlineImageAlts, [
     'Картинка 1',
     'Картинка 2',
@@ -249,6 +250,28 @@ test('structured output validates metadata, sanitizes the HTML and preserves uns
   ]);
   assert.match(result.safeHtml, /<blockquote>/);
   assert.doesNotMatch(result.safeHtml, /<script|<img/i);
+  answer = JSON.stringify({ ...validAnswer, category: 'Доступность' });
+  const categoryResponse = await f.call(textPath, 'POST', {
+    prompt: 'Статья',
+    structured: true,
+  });
+  assert.equal(categoryResponse.status, 200);
+  assert.equal(
+    ((await categoryResponse.json()) as { metadata: { category: string } })
+      .metadata.category,
+    'Доступность',
+  );
+  answer = JSON.stringify({ ...validAnswer, category: 'а'.repeat(81) });
+  const oversizedCategory = await f.call(textPath, 'POST', {
+    prompt: 'Статья',
+    structured: true,
+  });
+  assert.equal(oversizedCategory.status, 200);
+  assert.equal(
+    ((await oversizedCategory.json()) as { metadata: { category: string } })
+      .metadata.category,
+    '',
+  );
   answer = JSON.stringify({ ...validAnswer, clusterTopic: 'т'.repeat(500) });
   assert.equal(
     (await f.call(textPath, 'POST', { prompt: 'Статья', structured: true }))
@@ -270,7 +293,7 @@ test('structured output validates metadata, sanitizes the HTML and preserves uns
   });
   assert.equal(invalid.status, 400);
   assert.match(await invalid.text(), /не применены/i);
-  assert.equal(calls, 6);
+  assert.equal(calls, 8);
   answer = '<p>Обычный текст</p>';
   const legacy = await f.call(textPath, 'POST', { prompt: 'Статья' });
   assert.equal(legacy.status, 200);

@@ -7,17 +7,19 @@ export type AiMetadata = {
   seoTitle?: string;
   seoDescription?: string;
   imageAlt?: string;
+  category?: string;
   inlineImageAlts?: string[];
 };
 
 type MetadataField =
-  'title' | 'slug' | 'seoTitle' | 'seoDescription' | 'imageAlt';
+  'title' | 'slug' | 'seoTitle' | 'seoDescription' | 'imageAlt' | 'category';
 const fields: { key: MetadataField; label: string; limit: number }[] = [
   { key: 'title', label: 'заголовок', limit: 240 },
   { key: 'slug', label: 'URL', limit: 160 },
   { key: 'seoTitle', label: 'SEO Title', limit: 240 },
   { key: 'seoDescription', label: 'SEO Description', limit: 500 },
   { key: 'imageAlt', label: 'alt обложки', limit: 500 },
+  { key: 'category', label: 'категория статьи', limit: 80 },
 ];
 
 export type AiMetadataPlan = {

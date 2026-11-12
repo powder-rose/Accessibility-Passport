@@ -68,6 +68,15 @@ const generatedArticleSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     seoTitle: z.string().trim().min(1).max(240),
     seoDescription: z.string().trim().min(1).max(500),
+    // Category is optional: a malformed suggestion must not discard a paid article.
+    category: z
+      .unknown()
+      .optional()
+      .transform((value) => {
+        if (typeof value !== 'string') return '';
+        const category = value.trim();
+        return category.length <= 80 ? category : '';
+      }),
     imageAlt: z.string().trim().min(1).max(500),
     inlineImageAlts: z.array(z.string().trim().min(1).max(500)).length(3),
     articleHtml: z.string().trim().min(1).max(300000),

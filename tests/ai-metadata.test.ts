@@ -2,6 +2,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyArticle } from '../src/features/articles/model';
 import { planAiMetadata } from '../src/components/admin/articles/ai-metadata';
+import {
+  selectAiField,
+  type AiMetadataTarget,
+} from '../src/components/admin/articles/ai-target';
+
+test('selecting a single AI field preserves all other article fields', () => {
+  const values = {
+    title: 'Название',
+    slug: 'new-url',
+    imageAlt: 'Описание',
+    seoTitle: 'SEO',
+    seoDescription: 'Аннотация',
+    category: 'Доступность',
+  };
+  const fields: AiMetadataTarget[] = [
+    'title',
+    'slug',
+    'imageAlt',
+    'seoTitle',
+    'seoDescription',
+    'category',
+  ];
+  for (const target of fields) {
+    const suggestion = selectAiField(target, values);
+    const plan = planAiMetadata(emptyArticle(), suggestion, []);
+    assert.deepEqual(Object.keys(plan.fields), [target]);
+    assert.equal(plan.fields[target], values[target]);
+    assert.deepEqual(plan.inline, []);
+  }
+});
 
 test('AI suggestions preserve existing content and identify each overwritten field', () => {
   const form = {
@@ -9,6 +39,7 @@ test('AI suggestions preserve existing content and identify each overwritten fie
     title: 'Прежнее название',
     slug: 'old-url',
     imageAlt: 'Старый alt',
+    category: 'Старая категория',
     content: '<p>Сохранить</p>',
   };
   const original = structuredClone(form);
@@ -20,6 +51,7 @@ test('AI suggestions preserve existing content and identify each overwritten fie
       seoTitle: 'SEO',
       seoDescription: 'Описание',
       imageAlt: 'Новый alt',
+      category: 'Новая категория',
       inlineImageAlts: [
         'Первое изображение',
         'Второе изображение',
@@ -35,6 +67,7 @@ test('AI suggestions preserve existing content and identify each overwritten fie
     seoTitle: 'SEO',
     seoDescription: 'Описание',
     imageAlt: 'Новый alt',
+    category: 'Новая категория',
   });
   assert.deepEqual(plan.inline, [
     { index: 0, alt: 'Первое изображение' },
@@ -44,6 +77,7 @@ test('AI suggestions preserve existing content and identify each overwritten fie
     'заголовок',
     'URL',
     'alt обложки',
+    'категория статьи',
     'alt изображения 2',
   ]);
 });
@@ -58,6 +92,10 @@ test('AI metadata rejects invalid URLs and oversized content before applying any
   assert.throws(
     () => planAiMetadata(form, { seoDescription: 'x'.repeat(501) }, []),
     /500/,
+  );
+  assert.throws(
+    () => planAiMetadata(form, { category: 'x'.repeat(81) }, []),
+    /80/,
   );
   assert.throws(
     () => planAiMetadata(form, { inlineImageAlts: ['x'.repeat(501)] }, ['']),

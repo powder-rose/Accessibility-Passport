@@ -15,6 +15,7 @@ import {
   revisionBase,
   saveRecovery,
 } from './recovery-store';
+import { ensureCurrentDraft } from './fresh-draft';
 
 type Status = 'loading' | 'saved' | 'pending' | 'saving' | 'error';
 export function useAssistantDraft() {
@@ -208,6 +209,14 @@ export function useAssistantDraft() {
     await persistRecovery();
     await flush();
   }, [flush, persistRecovery]);
+  // A different tab can replace the reference photos without changing this
+  // tab's local draft. Check the saved revisions immediately before spending.
+  const assertCurrentRevisions = useCallback(async () => {
+    await flush();
+    const expected = revision.current;
+    if (!expected) throw new Error('Материалы ещё загружаются.');
+    await ensureCurrentDraft(expected);
+  }, [flush]);
   return {
     draft,
     current,
@@ -217,5 +226,6 @@ export function useAssistantDraft() {
     update,
     hasConflict,
     overwriteAfterConflict,
+    assertCurrentRevisions,
   };
 }

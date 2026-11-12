@@ -2,6 +2,7 @@ import type { ArticleForm } from '@/features/articles/model';
 import { articleSlug } from '@/features/articles/model';
 import ArticleCover from './ArticleCover';
 import RichTextEditor from '../editor/RichTextEditor';
+import { aiTargetLabels, type AiTarget } from './ai-target';
 
 type Change = <K extends keyof ArticleForm>(
   field: K,
@@ -13,13 +14,26 @@ export default function ArticleFields({
   categories,
   editing,
   disabled,
+  onOpenAssistant,
 }: {
   form: ArticleForm;
   onChange: Change;
   categories: string[];
   editing: boolean;
   disabled: boolean;
+  onOpenAssistant: (target: AiTarget) => void;
 }) {
+  const aiButton = (target: AiTarget) => (
+    <button
+      className="article-ai-field-button"
+      type="button"
+      disabled={disabled}
+      aria-label={`Взять ${aiTargetLabels[target]} из ИИ-помощника`}
+      onClick={() => onOpenAssistant(target)}
+    >
+      ✦ Взять из ИИ-помощника
+    </button>
+  );
   return (
     <>
       <section className="article-admin-card">
@@ -33,6 +47,7 @@ export default function ArticleFields({
             onChange={(event) => onChange('title', event.target.value)}
           />
         </label>
+        {aiButton('title')}
         <label>
           URL статьи
           <div className="article-slug">
@@ -57,12 +72,14 @@ export default function ArticleFields({
               : 'Можно оставить пустым — адрес автоматически сформируется из заголовка.'}
           </small>
         </label>
+        {aiButton('slug')}
         <ArticleCover
           image={form.image}
           alt={form.imageAlt}
           onChange={(image) => onChange('image', image)}
           disabled={disabled}
         />
+        {aiButton('image')}
         <label>
           Alt изображения
           <input
@@ -72,6 +89,7 @@ export default function ArticleFields({
             onChange={(event) => onChange('imageAlt', event.target.value)}
           />
         </label>
+        {aiButton('imageAlt')}
         <div className="article-text-field">
           <span>Текст статьи</span>
           <RichTextEditor
@@ -80,6 +98,7 @@ export default function ArticleFields({
             disabled={disabled}
           />
         </div>
+        {aiButton('content')}
         <label>
           Категория статьи
           <input
@@ -94,6 +113,7 @@ export default function ArticleFields({
             Выберите готовую категорию или впишите новую самостоятельно.
           </small>
         </label>
+        {aiButton('category')}
         <datalist id="article-categories">
           {categories.map((category) => (
             <option value={category} key={category} />
@@ -128,6 +148,7 @@ export default function ArticleFields({
             onChange={(event) => onChange('seoTitle', event.target.value)}
           />
         </label>
+        {aiButton('seoTitle')}
         <label>
           SEO Description
           <textarea
@@ -138,6 +159,7 @@ export default function ArticleFields({
             onChange={(event) => onChange('seoDescription', event.target.value)}
           />
         </label>
+        {aiButton('seoDescription')}
       </section>
     </>
   );

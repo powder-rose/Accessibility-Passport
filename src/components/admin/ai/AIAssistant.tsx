@@ -4,6 +4,8 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type Dispatch,
+  type SetStateAction,
 } from 'react';
 import { articleRequest, articleJson } from '../articles/api';
 import { AdminRequestError } from '@/lib/admin-request';
@@ -21,6 +23,18 @@ import {
 } from './image-request';
 import type { AssistantDraft, SourceDocument } from './draft-store';
 import type { AssistantMetadata } from './metadata';
+import type { AiMetadata } from '../articles/ai-metadata';
+import {
+  aiTargetLabels,
+  selectAiField,
+  type AiTarget,
+} from '../articles/ai-target';
+import type { TextResult } from './result';
+import {
+  chooseImagePrompt,
+  defaultImagePrompt,
+  nextImageScene,
+} from './image-prompt';
 import './assistant.css';
 
 type Status = {
@@ -29,12 +43,6 @@ type Status = {
   textModel?: string;
   imageModel?: string;
 };
-type TextResult = {
-  text: string;
-  safeHtml: string;
-  metadata: AssistantMetadata;
-  usage?: Record<string, number>;
-};
 type ShareImport = {
   title: string;
   text: string;
@@ -42,10 +50,26 @@ type ShareImport = {
   omittedParts: number;
 };
 type Props = {
+  target?: AiTarget;
+  result?: TextResult;
+  setResult: Dispatch<SetStateAction<TextResult | undefined>>;
+  metadata?: AssistantMetadata;
+  setMetadata: Dispatch<SetStateAction<AssistantMetadata | undefined>>;
+  resultApplied: boolean;
+  setResultApplied: Dispatch<SetStateAction<boolean>>;
+  appliedMetadata: string[];
+  setAppliedMetadata: Dispatch<SetStateAction<string[]>>;
   articleTitle: string;
   articleContent: string;
   onApplyText: (html: string, title?: string) => Promise<void>;
-  onApplyMetadata: (metadata: AssistantMetadata) => Promise<void>;
+  onAutofill: (result: TextResult) => {
+    applied: string[];
+    preserved: string[];
+    review: string[];
+    appliedMetadata: string[];
+    textApplied: boolean;
+  };
+  onApplyMetadata: (metadata: AiMetadata) => Promise<void>;
   onApplyImage: (
     file: File,
     slot: 'cover' | 'inline',
@@ -91,10 +115,30 @@ function imageFile(dataUrl: string): File {
     { type: `image/${match[1]}` },
   );
 }
+function articleImageContext(content: string) {
+  const template = document.createElement('template');
+  template.innerHTML = content;
+  return {
+    count: template.content.querySelectorAll('img').length,
+    headings: Array.from(template.content.querySelectorAll('h2')).map(
+      (heading) => heading.textContent || '',
+    ),
+  };
+}
 export default function AIAssistant({
+  target,
+  result,
+  setResult,
+  metadata,
+  setMetadata,
+  resultApplied,
+  setResultApplied,
+  appliedMetadata,
+  setAppliedMetadata,
   articleTitle,
   articleContent,
   onApplyText,
+  onAutofill,
   onApplyMetadata,
   onApplyImage,
   onClose,
@@ -108,8 +152,11 @@ export default function AIAssistant({
     update,
     hasConflict,
     overwriteAfterConflict,
+    assertCurrentRevisions,
   } = useAssistantDraft();
   const dialog = useRef<HTMLDialogElement>(null);
+  const textSection = useRef<HTMLDetailsElement>(null);
+  const imageSection = useRef<HTMLDetailsElement>(null);
   const exampleInput = useRef<HTMLInputElement>(null);
   const sourceInput = useRef<HTMLInputElement>(null);
   const [connection, setConnection] = useState<Status>();
@@ -121,12 +168,12 @@ export default function AIAssistant({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [includeCurrent, setIncludeCurrent] = useState(false);
-  const [result, setResult] = useState<TextResult>();
-  const [metadata, setMetadata] = useState<AssistantMetadata>();
-  const [resultApplied, setResultApplied] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
-  const [imageAlt, setImageAlt] = useState('');
-  const [inlineAltIndex, setInlineAltIndex] = useState(0);
+  const [automaticPrompt, setAutomaticPrompt] = useState<string | null>(null);
+  const [imageAlt, setImageAlt] = useState(metadata?.imageAlt || '');
+  const [inlineAltIndex, setInlineAltIndex] = useState(() =>
+    Math.min(2, articleImageContext(articleContent).count),
+  );
   const [seoNameOverride, setSeoNameOverride] = useState<string | null>(null);
   const [includePhotos, setIncludePhotos] = useState(true);
   const [image, setImage] = useState('');
@@ -136,7 +183,18 @@ export default function AIAssistant({
   const [slot, setSlot] = useState<'cover' | 'inline'>('cover');
   useEffect(() => {
     const node = dialog.current;
-    node?.showModal();
+    if (node && !node.open) node.showModal();
+    if (target) {
+      const section =
+        target === 'image' ? imageSection.current : textSection.current;
+      if (section) {
+        section.open = true;
+        section.scrollIntoView({ block: 'start' });
+      }
+    }
+  }, [target]);
+  useEffect(() => {
+    const node = dialog.current;
     const controller = new AbortController();
     articleRequest<Status>('/api/admin/ai/status', {
       signal: controller.signal,
@@ -194,16 +252,6 @@ export default function AIAssistant({
     void loadJobs(controller.signal);
     return () => controller.abort();
   }, [loadJobs]);
-  useEffect(() => {
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (result && !resultApplied) {
-        event.preventDefault();
-        event.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, [result, resultApplied]);
   useEffect(() => {
     if (!imageJob) return;
     if (imageJob.status === 'succeeded' && imageJob.dataUrl) {
@@ -293,14 +341,6 @@ export default function AIAssistant({
     .slice(0, 90)
     .replace(/-+$/, '');
   async function close() {
-    if (
-      result &&
-      !resultApplied &&
-      !window.confirm(
-        'Полученный текст ещё не перенесён в редактор и будет потерян. Закрыть ИИ-помощник?',
-      )
-    )
-      return;
     await run('close', async () => {
       await flush();
       onClose();
@@ -399,7 +439,16 @@ export default function AIAssistant({
   }
   async function generateText() {
     await run('text', async () => {
-      await flush();
+      if (
+        result &&
+        (!resultApplied ||
+          appliedMetadata.length < (metadata?.category?.trim() ? 6 : 5)) &&
+        !window.confirm(
+          'Новая генерация заменит ещё не перенесённый результат. Запрос может быть платным. Продолжить?',
+        )
+      )
+        return;
+      await assertCurrentRevisions();
       const materials = current.current;
       if (
         materials.chatEnabled &&
@@ -436,18 +485,47 @@ export default function AIAssistant({
         !response.metadata
       )
         throw new Error('Сервис не вернул пригодный текст.');
-      setResult(response);
-      setMetadata(response.metadata);
+      const normalized = {
+        ...response,
+        metadata: {
+          ...response.metadata,
+          category: response.metadata.category || '',
+        },
+      };
+      setResult(normalized);
+      setMetadata(normalized.metadata);
+      const nextInline = Math.min(2, articleImageContext(articleContent).count);
       setImageAlt(
         slot === 'cover'
           ? response.metadata.imageAlt
-          : response.metadata.inlineImageAlts[0] || '',
+          : response.metadata.inlineImageAlts[nextInline] || '',
       );
-      setInlineAltIndex(0);
+      setInlineAltIndex(nextInline);
       setResultApplied(false);
-      setNotice(
-        'Черновик получен. Проверьте нормы и факты перед применением. Стоимость смотрите в кабинете шлюза.',
-      );
+      setAppliedMetadata([]);
+      try {
+        const fill = onAutofill(normalized);
+        setResultApplied(fill.textApplied);
+        setAppliedMetadata(fill.appliedMetadata);
+        setNotice(
+          [
+            fill.applied.length
+              ? `Заполнено: ${fill.applied.join(', ')}.`
+              : 'Пустых полей для заполнения нет.',
+            fill.preserved.length
+              ? `Сохранено без изменений: ${fill.preserved.join(', ')}.`
+              : '',
+            fill.review.length ? `Проверьте: ${fill.review.join('; ')}.` : '',
+            'Проверьте текст, нормы, факты и SEO перед сохранением. Стоимость смотрите в кабинете шлюза.',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        );
+      } catch {
+        setNotice(
+          'Черновик получен, но автоматически заполнить поля не удалось. Результат сохранён в помощнике — проверьте и перенесите его вручную.',
+        );
+      }
     });
   }
   async function importChat() {
@@ -488,8 +566,26 @@ export default function AIAssistant({
   }
   async function generateImage() {
     await run('image', async () => {
-      await flush();
-      if (!imagePrompt.trim()) throw new Error('Опишите сюжет изображения.');
+      await assertCurrentRevisions();
+      const scene = nextImageScene(
+        slot,
+        inlineAltIndex,
+        metadata?.imageAlt || '',
+        metadata?.inlineImageAlts || [],
+        articleImageContext(articleContent).headings,
+      );
+      const selected = chooseImagePrompt(
+        imagePrompt,
+        automaticPrompt,
+        current.current.topic,
+        articleTitle || metadata?.title || '',
+        scene,
+      );
+      const prompt = selected.prompt;
+      if (!prompt)
+        throw new Error('Укажите тему статьи или опишите сюжет изображения.');
+      setImagePrompt(prompt);
+      setAutomaticPrompt(selected.automatic);
       const photos = current.current.photos.filter(Boolean);
       if (includePhotos && photos.length !== 2)
         throw new Error('Добавьте оба фото Николая или отключите их передачу.');
@@ -512,7 +608,7 @@ export default function AIAssistant({
       try {
         const next = await startImageJob(
           requestId,
-          imagePrompt,
+          prompt,
           includePhotos ? photos : [],
         );
         setImageJob(next);
@@ -588,6 +684,14 @@ export default function AIAssistant({
         доступны после входа в админку в другом браузере. Ключ сохраняется на
         сервере.
       </p>
+      {target && (
+        <p className="article-ai-note" role="status">
+          Вы выбрали: {aiTargetLabels[target]}.{' '}
+          {target === 'image'
+            ? 'Создайте или выберите готовое изображение и добавьте его как обложку.'
+            : 'Создайте черновик и перенесите нужное поле. Полученный результат хранится до обновления или закрытия страницы.'}
+        </p>
+      )}
       {saveError && (
         <div>
           <p className="form-error" role="alert">
@@ -836,7 +940,7 @@ export default function AIAssistant({
           }
         />
       </details>
-      <details open>
+      <details open ref={textSection}>
         <summary>3 · Черновик статьи</summary>
         <label>
           Задание для модели
@@ -866,6 +970,37 @@ export default function AIAssistant({
         </button>
         {result && (
           <>
+            {metadata &&
+              target &&
+              target !== 'image' &&
+              target !== 'content' && (
+                <>
+                  <button
+                    type="button"
+                    disabled={blocked || !metadata[target].trim()}
+                    onClick={() =>
+                      void run('apply-field', async () => {
+                        await onApplyMetadata(selectAiField(target, metadata));
+                        setAppliedMetadata((previous) =>
+                          previous.includes(target)
+                            ? previous
+                            : [...previous, target],
+                        );
+                        setNotice(
+                          `Поле «${aiTargetLabels[target]}» перенесено в редактор.`,
+                        );
+                      })
+                    }
+                  >
+                    Перенести {aiTargetLabels[target]} в редактор
+                  </button>
+                  {target === 'category' && !metadata.category.trim() && (
+                    <p className="article-ai-note">
+                      Модель не предложила категорию. Укажите её ниже вручную.
+                    </p>
+                  )}
+                </>
+              )}
             <div
               className="article-ai-preview"
               aria-label="Предпросмотр черновика"
@@ -900,12 +1035,13 @@ export default function AIAssistant({
                     value={metadata.clusterTopic}
                     maxLength={500}
                     disabled={blocked}
-                    onChange={(event) =>
+                    onChange={(event) => {
                       setMetadata({
                         ...metadata,
                         clusterTopic: event.target.value,
-                      })
-                    }
+                      });
+                      setAppliedMetadata([]);
+                    }}
                   />
                 </label>
                 <button
@@ -937,6 +1073,7 @@ export default function AIAssistant({
                     ['seoTitle', 'SEO Title', 240],
                     ['seoDescription', 'SEO Description', 500],
                     ['imageAlt', 'Alt обложки', 500],
+                    ['category', 'Категория статьи', 80],
                   ] as const
                 ).map(([key, label, limit]) => (
                   <label key={key}>
@@ -945,9 +1082,12 @@ export default function AIAssistant({
                       value={metadata[key]}
                       maxLength={limit}
                       disabled={blocked}
-                      onChange={(event) =>
-                        setMetadata({ ...metadata, [key]: event.target.value })
-                      }
+                      onChange={(event) => {
+                        setMetadata({ ...metadata, [key]: event.target.value });
+                        setAppliedMetadata((previous) =>
+                          previous.filter((item) => item !== key),
+                        );
+                      }}
                     />
                   </label>
                 ))}
@@ -962,6 +1102,7 @@ export default function AIAssistant({
                         const inlineImageAlts = [...metadata.inlineImageAlts];
                         inlineImageAlts[index] = event.target.value;
                         setMetadata({ ...metadata, inlineImageAlts });
+                        setAppliedMetadata([]);
                       }}
                     />
                   </label>
@@ -972,6 +1113,14 @@ export default function AIAssistant({
                   onClick={() =>
                     void run('apply-metadata', async () => {
                       await onApplyMetadata(metadata);
+                      setAppliedMetadata([
+                        'title',
+                        'slug',
+                        'seoTitle',
+                        'seoDescription',
+                        'imageAlt',
+                        ...(metadata.category.trim() ? ['category'] : []),
+                      ]);
                       setNotice(
                         'Поля перенесены в редактор. Проверьте их перед сохранением.',
                       );
@@ -985,7 +1134,7 @@ export default function AIAssistant({
           </>
         )}
       </details>
-      <details>
+      <details ref={imageSection}>
         <summary>4 · Фото Николая и изображение</summary>
         <p className="article-ai-note">
           Выберите до двух фото (JPG, PNG или WEBP, до 20 МБ каждое). Большие
@@ -1032,18 +1181,32 @@ export default function AIAssistant({
             maxLength={18000}
             value={imagePrompt}
             disabled={blocked}
-            onChange={(event) => setImagePrompt(event.target.value)}
+            onChange={(event) => {
+              setImagePrompt(event.target.value);
+              setAutomaticPrompt(null);
+            }}
             placeholder="Николай осматривает вход в здание…"
           />
         </label>
         <button
           type="button"
           disabled={blocked}
-          onClick={() =>
-            setImagePrompt(
-              `Создай фотореалистичную иллюстрацию для статьи «${draft.topic || articleTitle}». Николай — главный участник сцены, сохрани его узнаваемые черты по обеим фотографиям. Изобрази ситуацию по теме статьи, без текста и логотипов.`,
-            )
-          }
+          onClick={() => {
+            const scene = nextImageScene(
+              slot,
+              inlineAltIndex,
+              metadata?.imageAlt || '',
+              metadata?.inlineImageAlts || [],
+              articleImageContext(articleContent).headings,
+            );
+            const prompt = defaultImagePrompt(
+              draft.topic,
+              articleTitle || metadata?.title || '',
+              scene,
+            );
+            setImagePrompt(prompt);
+            setAutomaticPrompt(prompt || null);
+          }}
         >
           Сформировать запрос по теме
         </button>
@@ -1176,10 +1339,10 @@ export default function AIAssistant({
                     (seoNameOverride ?? suggestedFileName).trim(),
                   );
                   setSeoNameOverride(null);
-                  if (slot === 'inline' && metadata) {
+                  if (slot === 'inline') {
                     const next = Math.min(2, inlineAltIndex + 1);
                     setInlineAltIndex(next);
-                    setImageAlt(metadata.inlineImageAlts[next] || '');
+                    setImageAlt(metadata?.inlineImageAlts[next] || '');
                   }
                   setNotice('Изображение перенесено в редактор.');
                 })

@@ -7,5 +7,6 @@ export type AssistantMetadata = {
   seoTitle: string;
   seoDescription: string;
   imageAlt: string;
+  category: string;
   inlineImageAlts: string[];
 };

@@ -40,6 +40,7 @@ function initialDraft(id?: string) {
 export function useArticleForm(id?: string) {
   const [draft] = useState(() => initialDraft(id));
   const [form, setForm] = useState<ArticleForm>(draft?.form || emptyArticle());
+  const currentForm = useRef(form);
   const requestId = useRef(
     draft?.requestId && /^[a-f0-9-]{36}$/.test(draft.requestId)
       ? draft.requestId
@@ -62,7 +63,9 @@ export function useArticleForm(id?: string) {
     })
       .then(({ article }) => {
         setRecord(article);
-        setForm(articleFormSchema.parse(article));
+        const next = articleFormSchema.parse(article);
+        currentForm.current = next;
+        setForm(next);
       })
       .catch((error) => {
         if (!controller.signal.aborted)
@@ -115,7 +118,8 @@ export function useArticleForm(id?: string) {
   ) {
     unsaved.current = true;
     setDirty(true);
-    setForm((previous) => ({ ...previous, [field]: value }));
+    currentForm.current = { ...currentForm.current, [field]: value };
+    setForm(currentForm.current);
   }
   async function save() {
     if (locked.current) return;
@@ -129,7 +133,9 @@ export function useArticleForm(id?: string) {
       setDirty(false);
       if (!id) localStorage.removeItem(key);
       setRecord(result.article);
-      setForm(articleFormSchema.parse(result.article));
+      const next = articleFormSchema.parse(result.article);
+      currentForm.current = next;
+      setForm(next);
       location.assign('/admin/articles/');
     } catch (error) {
       setError(
@@ -140,5 +146,15 @@ export function useArticleForm(id?: string) {
       setPending(false);
     }
   }
-  return { form, record, loading, pending, error, draftStatus, change, save };
+  return {
+    form,
+    currentForm,
+    record,
+    loading,
+    pending,
+    error,
+    draftStatus,
+    change,
+    save,
+  };
 }

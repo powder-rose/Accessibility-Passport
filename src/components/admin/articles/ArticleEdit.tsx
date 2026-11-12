@@ -7,6 +7,10 @@ import AIAssistant from '../ai/AIAssistant';
 import { aiContentHasValue, cleanAiContent, insertAiImage } from './ai-content';
 import { imageSelectionError, uploadImage } from './api';
 import { planAiMetadata, type AiMetadata } from './ai-metadata';
+import type { AiTarget } from './ai-target';
+import type { TextResult } from '../ai/result';
+import type { AssistantMetadata } from '../ai/metadata';
+import { planAiAutofill } from './ai-autofill';
 
 async function prepareAiCover(file: File): Promise<File> {
   const url = URL.createObjectURL(file);
@@ -53,7 +57,30 @@ export default function ArticleEdit({ id }: { id?: string }) {
   const [categories, setCategories] = useState<string[]>([]);
   const [previewError, setPreviewError] = useState('');
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiTarget, setAiTarget] = useState<AiTarget>();
+  const [aiResult, setAiResult] = useState<TextResult>();
+  const [aiMetadata, setAiMetadata] = useState<AssistantMetadata>();
+  const [aiResultApplied, setAiResultApplied] = useState(false);
+  const [aiAppliedMetadata, setAiAppliedMetadata] = useState<string[]>([]);
   const [aiApplying, setAiApplying] = useState(false);
+  function openAssistant(target?: AiTarget) {
+    setAiTarget(target);
+    setAiOpen(true);
+  }
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (
+        aiResult &&
+        (!aiResultApplied ||
+          aiAppliedMetadata.length < (aiMetadata?.category?.trim() ? 6 : 5))
+      ) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => window.removeEventListener('beforeunload', beforeUnload);
+  }, [aiResult, aiResultApplied, aiAppliedMetadata, aiMetadata]);
   useEffect(() => {
     const controller = new AbortController();
     articleRequest<{ categories: string[] }>('/api/admin/articles', {
@@ -96,6 +123,30 @@ export default function ArticleEdit({ id }: { id?: string }) {
     if (!editor.form.title.trim() && title?.trim())
       editor.change('title', title.trim());
   }
+  function autofillAiResult(result: TextResult) {
+    const current = editor.currentForm.current;
+    const clean = cleanAiContent(result.safeHtml);
+    const plan = planAiAutofill(
+      current,
+      result.metadata,
+      clean,
+      aiContentHasValue(current.content),
+      aiContentHasValue(clean),
+    );
+    for (const key of [
+      'title',
+      'slug',
+      'category',
+      'seoTitle',
+      'seoDescription',
+      'imageAlt',
+      'content',
+    ] as const) {
+      const value = plan.changes[key];
+      if (value !== undefined) editor.change(key, value);
+    }
+    return plan;
+  }
   async function applyAiMetadata(metadata: AiMetadata) {
     // Parse the current editor HTML inertly and preserve all other nodes/attributes.
     const template = document.createElement('template');
@@ -124,6 +175,8 @@ export default function ArticleEdit({ id }: { id?: string }) {
       editor.change('seoDescription', plan.fields.seoDescription);
     if (plan.fields.imageAlt !== undefined)
       editor.change('imageAlt', plan.fields.imageAlt);
+    if (plan.fields.category !== undefined)
+      editor.change('category', plan.fields.category);
     if (plan.inline.length) {
       for (const update of plan.inline)
         images[update.index].setAttribute('alt', update.alt);
@@ -145,8 +198,10 @@ export default function ArticleEdit({ id }: { id?: string }) {
       throw new Error('Укажите описание изображения до 500 символов.');
     if (
       slot === 'cover' &&
-      editor.form.image &&
-      !window.confirm('Заменить существующую обложку?')
+      (editor.form.image ||
+        (editor.form.imageAlt.trim() &&
+          editor.form.imageAlt.trim() !== description)) &&
+      !window.confirm('Заменить существующую обложку и её описание (alt)?')
     )
       throw new Error('Замена обложки отменена.');
     if (slot === 'inline')
@@ -224,6 +279,7 @@ export default function ArticleEdit({ id }: { id?: string }) {
             categories={categories}
             editing={!!id}
             disabled={editor.pending || aiApplying}
+            onOpenAssistant={openAssistant}
           />
         </div>
         <aside
@@ -234,7 +290,7 @@ export default function ArticleEdit({ id }: { id?: string }) {
           <button
             type="button"
             disabled={editor.pending || aiApplying}
-            onClick={() => setAiOpen(true)}
+            onClick={() => openAssistant()}
           >
             ✦ ИИ-помощник
           </button>
@@ -270,9 +326,19 @@ export default function ArticleEdit({ id }: { id?: string }) {
       </div>
       {aiOpen && (
         <AIAssistant
+          target={aiTarget}
+          result={aiResult}
+          setResult={setAiResult}
+          metadata={aiMetadata}
+          setMetadata={setAiMetadata}
+          resultApplied={aiResultApplied}
+          setResultApplied={setAiResultApplied}
+          appliedMetadata={aiAppliedMetadata}
+          setAppliedMetadata={setAiAppliedMetadata}
           articleTitle={editor.form.title}
           articleContent={editor.form.content}
           onApplyText={applyAiText}
+          onAutofill={autofillAiResult}
           onApplyMetadata={applyAiMetadata}
           onApplyImage={applyAiImage}
           onClose={() => setAiOpen(false)}

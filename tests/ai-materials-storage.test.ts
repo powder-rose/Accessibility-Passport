@@ -95,6 +95,56 @@ test('schema five migrates without changing data and supports independent CAS ac
   assert.throws(() => first.aiMaterials.put('materials', '[]', 2));
 });
 
+test('schema six snapshots restore and migrate to the compatibility marker without changing data', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'passport-ai-schema-six-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const path = join(dir, 'site.sqlite');
+  const initial = new Store(path);
+  initial.insertLead(
+    'existing',
+    'old-hash',
+    { name: 'saved' },
+    '2026-01-01T00:00:00.000Z',
+    'contact',
+  );
+  initial.aiMaterials.put('materials', '{"style":"сохранённый стиль"}', null);
+  initial.aiMaterials.put('photo1', photo, null, 'image/png');
+  const image = initial.articles.addImage(photo, 1, 1);
+  initial.close();
+  const old = new DatabaseSync(path);
+  old.exec('PRAGMA user_version=6');
+  old.close();
+  const snapshot = join(dir, 'old-snapshot');
+  assert.equal((await createBackup(path, snapshot)).schemaVersion, 6);
+  assert.equal((await verifyBackup(snapshot)).schemaVersion, 6);
+  const restored = await restoreBackup(snapshot, join(dir, 'restored'));
+  const migrated = new Store(restored.databasePath);
+  const version = new DatabaseSync(restored.databasePath, { readOnly: true });
+  try {
+    assert.equal(version.prepare('PRAGMA user_version').get()?.user_version, 7);
+    assert.equal(migrated.isAvailable(), true);
+    assert.equal(migrated.findLeadHash('existing'), 'old-hash');
+    assert.equal(
+      migrated.aiMaterials.get('materials')?.value,
+      '{"style":"сохранённый стиль"}',
+    );
+    assert.deepEqual(
+      Buffer.from(migrated.aiMaterials.get('photo1')!.value as Uint8Array),
+      photo,
+    );
+    assert.deepEqual(
+      Buffer.from(
+        migrated.articles.image(image.url.split('/').at(-1)!.slice(0, -5))!
+          .bytes,
+      ),
+      photo,
+    );
+  } finally {
+    version.close();
+    migrated.close();
+  }
+});
+
 test('backup restores materials and photos; schema-five snapshots still verify and migrate', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'passport-ai-backup-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -104,7 +154,7 @@ test('backup restores materials and photos; schema-five snapshots still verify a
   store.aiMaterials.put('photo2', photo, null, 'image/png');
   const snapshot = join(dir, 'snapshot');
   const result = await createBackup(path, snapshot);
-  assert.equal(result.schemaVersion, 6);
+  assert.equal(result.schemaVersion, 7);
   assert.equal(result.counts.ai_materials, 2);
   assert.deepEqual(await verifyBackup(snapshot), result);
   const restored = await restoreBackup(snapshot, join(dir, 'restored'));

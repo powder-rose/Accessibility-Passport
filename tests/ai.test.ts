@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import {
   mkdirSync,
   mkdtempSync,
@@ -19,14 +20,42 @@ import {
 } from '../server/auth/service';
 import { Diagnostics } from '../server/diagnostics';
 import { createAiEndpoints } from '../server/ai/api';
-import { publicAddress, type Transport } from '../server/ai/gateway';
+import {
+  imageResult,
+  publicAddress,
+  type Transport,
+} from '../server/ai/gateway';
+import type { ShareTransport } from '../server/ai/shared-chat';
 import { createApplication } from '../server/application';
 
 const password = 'synthetic-password';
 const key = 'synthetic-gateway-secret';
-const image =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lWQAAAAASUVORK5CYII=';
-async function setup(t: import('node:test').TestContext, transport: Transport) {
+const image = (
+  await sharp({
+    create: { width: 2, height: 2, channels: 3, background: '#f0f0f0' },
+  })
+    .png()
+    .toBuffer()
+).toString('base64');
+async function completedJob(
+  get: () => Promise<Response>,
+): Promise<{ status: string; dataUrl: string; error?: string }> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const result = (await (await get()).json()) as {
+      status: string;
+      dataUrl: string;
+      error?: string;
+    };
+    if (result.status !== 'running') return result;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('Synthetic image job did not complete.');
+}
+async function setup(
+  t: import('node:test').TestContext,
+  transport: Transport,
+  shareTransport?: ShareTransport,
+) {
   const dir = mkdtempSync(join(tmpdir(), 'passport-ai-'));
   const config: Config = {
     production: true,
@@ -49,7 +78,7 @@ async function setup(t: import('node:test').TestContext, transport: Transport) {
     diagnostics: new Diagnostics(),
     clientIp: '127.0.0.1',
   };
-  const endpoints = createAiEndpoints(transport);
+  const endpoints = createAiEndpoints(transport, shareTransport);
   t.after(() => {
     store.close();
     rmSync(dir, { recursive: true, force: true });
@@ -90,6 +119,166 @@ const configData = {
   textModel: 'gpt-6.1-terra',
   imageModel: 'gpt-image-2',
 };
+
+test('gateway results are validated and converted to bounded WebP without another request', async () => {
+  for (const kind of ['png', 'jpeg', 'webp'] as const) {
+    const bytes = await sharp({
+      create: { width: 8, height: 6, channels: 3, background: '#ff0000' },
+    })
+      .toFormat(kind)
+      .toBuffer();
+    const result = await imageResult({
+      data: [{ b64_json: bytes.toString('base64') }],
+    });
+    assert.match(result, /^data:image\/webp;base64,/);
+    const converted = Buffer.from(
+      result.slice(result.indexOf(',') + 1),
+      'base64',
+    );
+    if (kind === 'webp') assert.deepEqual(converted, bytes);
+    assert.equal(converted.toString('ascii', 0, 4), 'RIFF');
+    assert.equal(converted.toString('ascii', 8, 12), 'WEBP');
+    const metadata = await sharp(converted).metadata();
+    assert.equal(metadata.width, 8);
+    assert.equal(metadata.height, 6);
+    assert.ok(converted.length <= 5 * 1024 * 1024);
+  }
+  await assert.rejects(
+    imageResult({
+      data: [{ b64_json: Buffer.from('not an image').toString('base64') }],
+    }),
+    /неподдерживаемый/i,
+  );
+  const malformedPng = Buffer.from([
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0,
+  ]);
+  await assert.rejects(
+    imageResult({ data: [{ b64_json: malformedPng.toString('base64') }] }),
+    /автоматически не повторяется/i,
+  );
+  const malformedWebp = Buffer.from('RIFF....WEBP');
+  await assert.rejects(
+    imageResult({ data: [{ b64_json: malformedWebp.toString('base64') }] }),
+    /автоматически не повторяется/i,
+  );
+  const oversizedPng = await sharp({
+    create: { width: 6500, height: 6500, channels: 3, background: '#ffffff' },
+  })
+    .png()
+    .toBuffer();
+  await assert.rejects(
+    imageResult({ data: [{ b64_json: oversizedPng.toString('base64') }] }),
+    /автоматически не повторяется/i,
+  );
+});
+
+test('share import requires a valid admin session and same origin before requesting an external page', async (t) => {
+  let fetched = 0;
+  const f = await setup(
+    t,
+    async () => {
+      throw new Error('no gateway request');
+    },
+    async () => {
+      fetched++;
+      return '<html></html>';
+    },
+  );
+  const route = '/api/admin/ai/share-import';
+  const body = {
+    url: 'https://chatgpt.com/share/12345678-abcd-4321-9876-1234567890ab',
+  };
+  assert.equal((await f.call(route, 'POST', body, false)).status, 401);
+  assert.equal(
+    (await f.call(route, 'POST', body, true, 'https://other.test')).status,
+    403,
+  );
+  assert.equal(
+    (
+      await f.call(route, 'POST', {
+        url: 'https://127.0.0.1/share/12345678-abcd-4321-9876-1234567890ab',
+      })
+    ).status,
+    400,
+  );
+  assert.equal(fetched, 0);
+  assert.equal((await f.call(route, 'POST', body)).status, 400);
+  assert.equal(fetched, 1);
+});
+
+test('structured output validates metadata, sanitizes the HTML and preserves unstructured compatibility', async (t) => {
+  const validAnswer = {
+    clusterTopic: 'Доступность входной группы',
+    title: 'Название',
+    slug: 'sample-slug',
+    seoTitle: 'SEO',
+    seoDescription: 'Описание',
+    imageAlt: 'Обложка',
+    inlineImageAlts: ['Картинка 1', 'Картинка 2', 'Картинка 3'],
+    articleHtml:
+      '<h2>Раздел</h2><blockquote><p>Важно: проверка</p></blockquote><script>alert(1)</script><img src="x">',
+  };
+  let answer = JSON.stringify(validAnswer);
+  let calls = 0;
+  const f = await setup(t, async () => {
+    calls++;
+    return {
+      status: 200,
+      body: JSON.stringify({ choices: [{ message: { content: answer } }] }),
+    };
+  });
+  assert.equal((await f.call(configPath, 'POST', configData)).status, 200);
+  const response = await f.call(textPath, 'POST', {
+    prompt: 'Статья',
+    structured: true,
+  });
+  assert.equal(response.status, 200);
+  const result = (await response.json()) as {
+    metadata: Record<string, unknown>;
+    safeHtml: string;
+    text: string;
+  };
+  assert.equal(result.metadata.title, 'Название');
+  assert.equal(result.metadata.clusterTopic, 'Доступность входной группы');
+  assert.equal(result.metadata.slug, 'sample-slug');
+  assert.equal(result.metadata.imageAlt, 'Обложка');
+  assert.deepEqual(result.metadata.inlineImageAlts, [
+    'Картинка 1',
+    'Картинка 2',
+    'Картинка 3',
+  ]);
+  assert.match(result.safeHtml, /<blockquote>/);
+  assert.doesNotMatch(result.safeHtml, /<script|<img/i);
+  answer = JSON.stringify({ ...validAnswer, clusterTopic: 'т'.repeat(500) });
+  assert.equal(
+    (await f.call(textPath, 'POST', { prompt: 'Статья', structured: true }))
+      .status,
+    200,
+  );
+  for (const clusterTopic of ['', ' '.repeat(2), 'т'.repeat(501)]) {
+    answer = JSON.stringify({ ...validAnswer, clusterTopic });
+    const malformed = await f.call(textPath, 'POST', {
+      prompt: 'Статья',
+      structured: true,
+    });
+    assert.equal(malformed.status, 400);
+  }
+  answer = '{invalid json';
+  const invalid = await f.call(textPath, 'POST', {
+    prompt: 'Статья',
+    structured: true,
+  });
+  assert.equal(invalid.status, 400);
+  assert.match(await invalid.text(), /не применены/i);
+  assert.equal(calls, 6);
+  answer = '<p>Обычный текст</p>';
+  const legacy = await f.call(textPath, 'POST', { prompt: 'Статья' });
+  assert.equal(legacy.status, 200);
+  assert.match(
+    ((await legacy.json()) as { safeHtml: string }).safeHtml,
+    /Обычный текст/,
+  );
+});
 
 test('AI configuration requires admin and same origin, stores ciphertext, and never returns the key', async (t) => {
   const f = await setup(t, async () => {
@@ -188,17 +377,17 @@ test('generated HTML is sanitized and the gateway receives two explicit image pa
     referenceDataUrls: [ref, ref],
   });
   assert.equal(generated.status, 202);
-  const ready = await f.call('/api/admin/ai/image-jobs/' + requestId, 'GET');
-  assert.match(
-    ((await ready.json()) as { dataUrl: string }).dataUrl,
-    /^data:image\/png;base64,/,
+  const ready = await completedJob(() =>
+    f.call('/api/admin/ai/image-jobs/' + requestId, 'GET'),
   );
+  assert.match(ready.dataUrl, /^data:image\/webp;base64,/);
   assert.equal(calls.length, 2);
   assert.ok(calls[1].url.endsWith('/images/edits'));
   assert.equal(
     (calls[1].body.toString('latin1').match(/name="image\[\]"/g) || []).length,
     2,
   );
+  assert.doesNotMatch(calls[1].body.toString('latin1'), /name="output_format"/);
   assert.equal(calls[1].timeout, 900000);
   assert.equal(
     (
@@ -216,8 +405,13 @@ test('generated HTML is sanitized and the gateway receives two explicit image pa
 test('asynchronous image job survives disconnect and retries are idempotent', async (t) => {
   let complete: ((value: { status: number; body: string }) => void) | undefined;
   let requests = 0;
-  const f = await setup(t, async () => {
+  let generationBody: Record<string, unknown> | undefined;
+  const f = await setup(t, async (_url, _headers, body) => {
     requests++;
+    generationBody = JSON.parse(body.toString('utf8')) as Record<
+      string,
+      unknown
+    >;
     return await new Promise((resolve) => {
       complete = resolve;
     });
@@ -228,6 +422,9 @@ test('asynchronous image job survives disconnect and retries are idempotent', as
   assert.equal((await f.call(imagePath, 'POST', payload)).status, 202);
   assert.equal((await f.call(imagePath, 'POST', payload)).status, 202);
   assert.equal(requests, 1);
+  assert.equal(Object.hasOwn(generationBody || {}, 'output_format'), false);
+  assert.equal(generationBody?.model, configData.imageModel);
+  assert.equal(generationBody?.prompt, 'test');
   assert.equal(
     (await f.call(imagePath, 'POST', { ...payload, prompt: 'other' })).status,
     409,
@@ -242,13 +439,9 @@ test('asynchronous image job survives disconnect and retries are idempotent', as
     status: 200,
     body: JSON.stringify({ data: [{ b64_json: image }] }),
   });
-  await new Promise((resolve) => setImmediate(resolve));
-  const finished = (await (await f.call(path, 'GET')).json()) as {
-    status: string;
-    dataUrl: string;
-  };
+  const finished = await completedJob(() => f.call(path, 'GET'));
   assert.equal(finished.status, 'succeeded');
-  assert.match(finished.dataUrl, /^data:image\/png;base64,/);
+  assert.match(finished.dataUrl, /^data:image\/webp;base64,/);
   assert.equal(requests, 1);
   const list = (await (
     await f.call('/api/admin/ai/image-jobs', 'GET')
@@ -257,6 +450,31 @@ test('asynchronous image job survives disconnect and retries are idempotent', as
   assert.equal(list.jobs[0].id, requestId);
   assert.equal(list.jobs[0].dataUrl, undefined);
   assert.equal((await f.call(path, 'GET', undefined, false)).status, 401);
+});
+
+test('a malformed generated image fails WebP preparation without retrying the paid request', async (t) => {
+  let requests = 0;
+  const invalidPng = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+  const f = await setup(t, async () => {
+    requests++;
+    return {
+      status: 200,
+      body: JSON.stringify({
+        data: [{ b64_json: invalidPng.toString('base64') }],
+      }),
+    };
+  });
+  await f.call(configPath, 'POST', configData);
+  const requestId = randomUUID();
+  const payload = { requestId, prompt: 'тест', referenceDataUrls: [] };
+  assert.equal((await f.call(imagePath, 'POST', payload)).status, 202);
+  const result = await completedJob(() =>
+    f.call('/api/admin/ai/image-jobs/' + requestId, 'GET'),
+  );
+  assert.equal(result.status, 'unknown');
+  assert.match(result.error || '', /WebP.*автоматически не повторяется/i);
+  assert.equal((await f.call(imagePath, 'POST', payload)).status, 202);
+  assert.equal(requests, 1);
 });
 
 test('unfinished persisted job becomes unknown after restart without repeat', async (t) => {

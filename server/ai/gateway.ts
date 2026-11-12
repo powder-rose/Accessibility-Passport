@@ -2,6 +2,7 @@ import https from 'node:https';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import type { AISettings } from './settings';
 
 export interface Reference {
@@ -213,7 +214,12 @@ export async function callGateway(
     headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
   } else {
     path = '/images/generations';
-    body = Buffer.from(JSON.stringify({ model: settings.imageModel, prompt }));
+    body = Buffer.from(
+      JSON.stringify({
+        model: settings.imageModel,
+        prompt,
+      }),
+    );
     headers['Content-Type'] = 'application/json';
   }
   headers['Content-Length'] = String(body.length);
@@ -233,7 +239,7 @@ export async function callGateway(
     throw new Error('Шлюз вернул ответ неподдерживаемого формата.');
   }
 }
-export function imageResult(value: unknown): string {
+export async function imageResult(value: unknown): Promise<string> {
   const x = value as { data?: Array<{ b64_json?: unknown }> };
   const b = x?.data?.[0]?.b64_json;
   if (
@@ -243,25 +249,84 @@ export function imageResult(value: unknown): string {
   )
     throw new Error('Шлюз не вернул изображение в поддерживаемом формате.');
   const bytes = Buffer.from(b, 'base64');
-  let mime = '';
+  const isWebp =
+    bytes.length >= 12 &&
+    bytes.toString('ascii', 0, 4) === 'RIFF' &&
+    bytes.toString('ascii', 8, 12) === 'WEBP';
+  let supported = false;
   if (
     bytes.length >= 8 &&
     bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   )
-    mime = 'image/png';
+    supported = true;
   else if (
     bytes.length >= 3 &&
     bytes[0] === 255 &&
     bytes[1] === 216 &&
     bytes[2] === 255
   )
-    mime = 'image/jpeg';
-  else if (
-    bytes.length >= 12 &&
-    bytes.toString('ascii', 0, 4) === 'RIFF' &&
-    bytes.toString('ascii', 8, 12) === 'WEBP'
-  )
-    mime = 'image/webp';
-  if (!mime) throw new Error('Шлюз вернул неподдерживаемый файл изображения.');
-  return `data:${mime};base64,${b}`;
+    supported = true;
+  else if (isWebp) supported = true;
+  if (!supported)
+    throw new Error('Шлюз вернул неподдерживаемый файл изображения.');
+  const maxPixels = 40_000_000,
+    maxBytes = 5 * 1024 * 1024;
+  try {
+    const source = sharp(bytes, {
+      limitInputPixels: maxPixels,
+      failOn: 'error',
+    }).rotate();
+    const info = await source.metadata();
+    if (
+      !info.width ||
+      !info.height ||
+      info.width * info.height > maxPixels ||
+      (info.pages || 1) > 1
+    )
+      throw new Error('Неподдерживаемый размер или формат изображения.');
+    if (isWebp && bytes.length <= maxBytes) {
+      // Decode once to reject a truncated/corrupt file while preserving its
+      // original bytes and quality when the gateway already returned WebP.
+      await source.clone().stats();
+      return `data:image/webp;base64,${bytes.toString('base64')}`;
+    }
+    let output = await source
+      .clone()
+      .webp({ quality: 85, effort: 4 })
+      .toBuffer();
+    if (output.length > maxBytes)
+      output = await source
+        .clone()
+        .resize({
+          width: 2400,
+          height: 2400,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 75, effort: 4 })
+        .toBuffer();
+    if (output.length > maxBytes)
+      output = await source
+        .clone()
+        .resize({
+          width: 1920,
+          height: 1920,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 60, effort: 4 })
+        .toBuffer();
+    if (
+      output.length > maxBytes ||
+      output.length < 12 ||
+      output.toString('ascii', 0, 4) !== 'RIFF' ||
+      output.toString('ascii', 8, 12) !== 'WEBP'
+    )
+      throw new Error('Результат превышает допустимый размер.');
+    return `data:image/webp;base64,${output.toString('base64')}`;
+  } catch {
+    throw new Error(
+      'Не удалось подготовить WebP. Проверьте результат и расходы в сервисе; запрос автоматически не повторяется.',
+    );
+  }
 }

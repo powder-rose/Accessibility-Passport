@@ -43,9 +43,10 @@ export function saveArticle(
     ),
   );
 }
-export function uploadImage(file: File) {
+export function uploadImage(file: File, seoName?: string) {
   const body = new FormData();
   body.set('image', file);
+  if (seoName !== undefined) body.set('seoName', seoName);
   return articleRequest<ArticleImage>(
     '/api/admin/article-images',
     { method: 'POST', body },

@@ -47,7 +47,7 @@ function openDatabase(filename) {
 
 function checkVersion(database) {
   const version = database.prepare('PRAGMA user_version').get().user_version;
-  if (![3, 4, 5, 6].includes(version))
+  if (![3, 4, 5, 6, 7].includes(version))
     throw new RecoveryError(
       'Unsupported database schema; use matching application code.',
     );
@@ -206,7 +206,7 @@ export async function verifyBackup(snapshotPath) {
   if (
     !manifest ||
     manifest.formatVersion !== 1 ||
-    ![3, 4, 5, 6].includes(manifest.schemaVersion) ||
+    ![3, 4, 5, 6, 7].includes(manifest.schemaVersion) ||
     typeof manifest.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(manifest.createdAt)) ||
     !Number.isSafeInteger(manifest.size) ||

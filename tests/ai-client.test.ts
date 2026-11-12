@@ -13,9 +13,29 @@ import {
 import { buildPrompt, selectExamples } from '../src/components/admin/ai/prompt';
 import {
   emptyDraft,
+  normalizeDraft,
   readDraft,
   writeDraft,
 } from '../src/components/admin/ai/draft-store';
+
+test('chat context is optional, editable and remains usable for older saved drafts', () => {
+  const draft = normalizeDraft({ topic: 'Прежняя тема', photos: ['', ''] });
+  assert.equal(draft.chatContext, '');
+  assert.equal(draft.chatEnabled, true);
+  draft.topic = '';
+  draft.chatContext = 'В конце чата выбрана тема о доступном входе.';
+  assert.match(buildPrompt(draft, '', false), /выбрана тема о доступном входе/);
+  draft.chatEnabled = false;
+  assert.throws(() => buildPrompt(draft, '', false), /Укажите тему/);
+  draft.topic = 'Статья';
+  assert.doesNotMatch(
+    buildPrompt(draft, '', false),
+    /выбрана тема о доступном входе/,
+  );
+  draft.chatEnabled = true;
+  draft.chatContext = 'а'.repeat(120_001);
+  assert.throws(() => buildPrompt(draft, '', false), /не помещаются/);
+});
 
 test('examples are selected by topic and legal sources are not silently cut', () => {
   const draft = emptyDraft();

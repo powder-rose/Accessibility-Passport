@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   articleFormSchema,
+  articleImagePath,
   articleSlug,
 } from '../../src/features/articles/model';
 import type { ApiContext, ApiHandler } from '../api/context';
@@ -129,7 +130,7 @@ export function articleEndpoint(
   if (path === '/api/admin/article-images') return { POST: upload };
   if (/^\/api\/admin\/articles\/[a-f0-9-]{36}$/.test(path))
     return { GET: read, PUT: update, DELETE: remove };
-  if (/^\/media\/articles\/[a-f0-9-]{36}\.webp$/.test(path))
+  if (articleImagePath.test(path))
     return { GET: articleImageResponse, HEAD: articleImageResponse };
   return undefined;
 }

@@ -11,6 +11,10 @@ export type AssistantDraft = {
   style: string;
   sources: string;
   instruction: string;
+  chatUrl: string;
+  chatContext: string;
+  chatEnabled: boolean;
+  chatOmittedParts: number;
   documents: SourceDocument[];
   examples: SourceDocument[];
   photos: [string, string];
@@ -21,6 +25,10 @@ export const emptyDraft = (): AssistantDraft => ({
     'Подробная практическая статья на русском языке: сначала суть и ключевое правило, затем вопросные H2/H3 с процедурами, условиями, сроками, участниками, частыми ошибками и последствиями. Короткие абзацы, примеры, списки, сравнительные таблицы и FAQ. Важные разграничения оформляй отдельными врезками.',
   sources: '',
   instruction: '',
+  chatUrl: '',
+  chatContext: '',
+  chatEnabled: true,
+  chatOmittedParts: 0,
   documents: [],
   examples: [],
   photos: ['', ''],
@@ -36,6 +44,22 @@ export type DraftRevision = {
   savedPhotos: [string, string];
 };
 export type StoredDraft = { revision: DraftRevision; value: AssistantDraft };
+// Earlier saved profiles predate chat support. Preserve their contents while
+// filling in the newly introduced fields, including recovery copies.
+export function normalizeDraft(value: Partial<AssistantDraft>): AssistantDraft {
+  return {
+    ...emptyDraft(),
+    ...value,
+    chatUrl: typeof value.chatUrl === 'string' ? value.chatUrl : '',
+    chatContext: typeof value.chatContext === 'string' ? value.chatContext : '',
+    chatEnabled: value.chatEnabled !== false,
+    chatOmittedParts:
+      Number.isSafeInteger(value.chatOmittedParts) &&
+      (value.chatOmittedParts ?? 0) >= 0
+        ? (value.chatOmittedParts ?? 0)
+        : 0,
+  };
+}
 function materialValue(value: AssistantDraft): Materials {
   const { photos: _photos, ...materials } = value;
   return materials;
@@ -46,12 +70,10 @@ export async function readDraft(): Promise<StoredDraft> {
     articleRequest<PhotoRecord>('/api/admin/ai/photo1'),
     articleRequest<PhotoRecord>('/api/admin/ai/photo2'),
   ]);
-  const fallback = emptyDraft();
-  const value: AssistantDraft = {
-    ...fallback,
+  const value: AssistantDraft = normalizeDraft({
     ...(materials.value || {}),
     photos: [photo1.dataUrl || '', photo2.dataUrl || ''],
-  };
+  });
   return {
     revision: {
       materials: materials.revision,

@@ -1,4 +1,5 @@
 import { safeArticleLink } from '@/features/articles/links';
+import { articleImagePath } from '@/features/articles/model';
 
 // Treat even the server-cleaned model response as untrusted before TipTap sees it.
 // A template keeps the parsed input inert; only explicitly constructed nodes leave it.
@@ -172,7 +173,7 @@ export function insertAiImage(
     });
   if (!free)
     throw new Error('Все подходящие места перед H2 уже заняты изображениями.');
-  if (!url.match(/^\/media\/articles\/[a-f0-9-]{36}\.webp$/))
+  if (!articleImagePath.test(url))
     throw new Error('Сервер вернул неверный адрес изображения.');
   const img = document.createElement('img');
   img.src = url;

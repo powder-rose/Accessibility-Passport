@@ -89,11 +89,14 @@ export function sanitizeArticleContent(content: string) {
 }
 export function imageReferences(content: string, image: string) {
   const references = new Set<string>();
-  if (image) references.add(image.slice('/media/articles/'.length, -5));
+  const cover = articleImagePath.exec(image);
+  if (cover) references.add(cover[1]);
   for (const match of content.matchAll(
-    /<img\b[^>]*src="(\/media\/articles\/([a-f0-9-]{36})\.webp)"/g,
-  ))
-    references.add(match[2]);
+    /<img\b[^>]*src="(\/media\/articles\/[a-z0-9-]{1,160}\.webp)"/g,
+  )) {
+    const matched = articleImagePath.exec(match[1]);
+    if (matched) references.add(matched[1]);
+  }
   return [...references];
 }
 export function articleText(content: string) {

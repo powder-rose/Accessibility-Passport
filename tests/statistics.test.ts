@@ -235,7 +235,7 @@ test('traffic survives reopening and verified backup/restore alongside the busin
   }
   const snapshot = join(directory, 'snapshot');
   const metadata = await createBackup(filename, snapshot);
-  assert.equal(metadata.schemaVersion, 6);
+  assert.equal(metadata.schemaVersion, 7);
   assert.equal(metadata.counts.analytics_visits, 2);
   assert.equal(metadata.counts.analytics_pageviews, 2);
   const restored = await restoreBackup(snapshot, join(directory, 'restored'));

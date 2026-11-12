@@ -42,7 +42,7 @@ export class Store {
     const version = this.db.prepare('PRAGMA user_version').get() as {
       user_version: number;
     };
-    if (version.user_version > 6)
+    if (version.user_version > 7)
       throw new Error('Unsupported database schema version.');
     if (version.user_version === 0) {
       inImmediateTransaction(this.db, () => {
@@ -78,6 +78,14 @@ export class Store {
       inImmediateTransaction(this.db, () => {
         this.db.exec(aiMaterialsSchema);
         this.db.exec('PRAGMA user_version=6');
+      });
+    }
+    if (version.user_version < 7) {
+      // Descriptive media IDs are not readable by the preceding application.
+      // The marker makes old versions refuse this database instead of silently
+      // dropping or hiding new image links during a rollback.
+      inImmediateTransaction(this.db, () => {
+        this.db.exec('PRAGMA user_version=7');
       });
     }
     this.articles = new ArticleRepository(this.db);
@@ -199,7 +207,7 @@ export class Store {
   }
   isAvailable(): boolean {
     try {
-      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 6)
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 7)
         return false;
       for (const table of [
         'leads',

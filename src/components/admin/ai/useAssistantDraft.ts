@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AdminRequestError } from '@/lib/admin-request';
 import {
   emptyDraft,
+  normalizeDraft,
   readDraft,
   writeDraft,
   type AssistantDraft,
@@ -59,7 +60,7 @@ export function useAssistantDraft() {
           recovery &&
           JSON.stringify(recovery.value) !== JSON.stringify(saved.value)
         ) {
-          current.current = recovery.value;
+          current.current = normalizeDraft(recovery.value);
           dirty.current = true;
           conflict.current = !equalBase(
             recovery.base,

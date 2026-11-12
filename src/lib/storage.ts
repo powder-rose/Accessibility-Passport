@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MiB } from './attachments';
+import { articleImageId } from '../features/articles/model';
 
 export const storageLimits = { attachments: 512 * MiB, images: 256 * MiB };
 export const imageGraceDays = 7;
@@ -18,7 +19,7 @@ export const storageReportSchema = z.object({
 export type StorageUsage = z.infer<typeof usageSchema>;
 export type StorageReport = z.infer<typeof storageReportSchema>;
 export const cleanupImageSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().refine((value) => articleImageId.test(value)),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
 });
 export const cleanupPreviewSchema = z.object({

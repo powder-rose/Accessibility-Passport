@@ -7,7 +7,9 @@ import {
 } from 'react';
 import { articleRequest, articleJson } from '../articles/api';
 import { AdminRequestError } from '@/lib/admin-request';
+import { articleSlug } from '@/features/articles/model';
 import { extractSourceDocument } from './source-documents';
+import { prepareReference } from './prepare-reference';
 import { buildPrompt, GENERATION_SYSTEM } from './prompt';
 import { useAssistantDraft } from './useAssistantDraft';
 import {
@@ -18,6 +20,7 @@ import {
   type ImageJob,
 } from './image-request';
 import type { AssistantDraft, SourceDocument } from './draft-store';
+import type { AssistantMetadata } from './metadata';
 import './assistant.css';
 
 type Status = {
@@ -29,16 +32,25 @@ type Status = {
 type TextResult = {
   text: string;
   safeHtml: string;
+  metadata: AssistantMetadata;
   usage?: Record<string, number>;
+};
+type ShareImport = {
+  title: string;
+  text: string;
+  messageCount: number;
+  omittedParts: number;
 };
 type Props = {
   articleTitle: string;
   articleContent: string;
   onApplyText: (html: string, title?: string) => Promise<void>;
+  onApplyMetadata: (metadata: AssistantMetadata) => Promise<void>;
   onApplyImage: (
     file: File,
     slot: 'cover' | 'inline',
     alt: string,
+    seoName: string,
   ) => Promise<void>;
   onClose: () => void;
 };
@@ -83,6 +95,7 @@ export default function AIAssistant({
   articleTitle,
   articleContent,
   onApplyText,
+  onApplyMetadata,
   onApplyImage,
   onClose,
 }: Props) {
@@ -109,9 +122,12 @@ export default function AIAssistant({
   const [notice, setNotice] = useState('');
   const [includeCurrent, setIncludeCurrent] = useState(false);
   const [result, setResult] = useState<TextResult>();
+  const [metadata, setMetadata] = useState<AssistantMetadata>();
   const [resultApplied, setResultApplied] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageAlt, setImageAlt] = useState('');
+  const [inlineAltIndex, setInlineAltIndex] = useState(0);
+  const [seoNameOverride, setSeoNameOverride] = useState<string | null>(null);
   const [includePhotos, setIncludePhotos] = useState(true);
   const [image, setImage] = useState('');
   const [imageJob, setImageJob] = useState<ImageJob>();
@@ -269,6 +285,13 @@ export default function AIAssistant({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   const blocked = Boolean(busy) || saveStatus === 'loading';
+  const suggestedFileName = articleSlug(
+    [metadata?.title || articleTitle || draft.topic, imageAlt]
+      .filter(Boolean)
+      .join(' '),
+  )
+    .slice(0, 90)
+    .replace(/-+$/, '');
   async function close() {
     if (
       result &&
@@ -361,18 +384,32 @@ export default function AIAssistant({
     event.currentTarget.value = '';
     if (!file) return;
     await run('photo', async () => {
-      const data = await readPhoto(file);
+      const prepared = await prepareReference(file);
+      const data = await readPhoto(prepared);
       const photos: [string, string] = [...current.current.photos];
       photos[index] = data;
       update({ photos });
       await flush();
-      setNotice(`Фото ${index + 1} сохранено.`);
+      setNotice(
+        file.size > IMAGE_LIMIT
+          ? `Фото ${index + 1} сжато на компьютере и сохранено. Исходный файл не изменён.`
+          : `Фото ${index + 1} сохранено.`,
+      );
     });
   }
   async function generateText() {
     await run('text', async () => {
       await flush();
       const materials = current.current;
+      if (
+        materials.chatEnabled &&
+        materials.chatContext.trim() &&
+        materials.chatOmittedParts > 0 &&
+        !window.confirm(
+          'В чате обнаружены вложения или другие нетекстовые материалы, которые не удалось прочитать. Добавьте необходимые документы отдельно. Продолжить с доступным текстом?',
+        )
+      )
+        return;
       const partial = materials.documents.filter(
         (document) => document.emptyPages > 0,
       );
@@ -386,15 +423,66 @@ export default function AIAssistant({
       const prompt = buildPrompt(materials, articleContent, includeCurrent);
       const response = await articleRequest<TextResult>(
         '/api/admin/ai/text',
-        articleJson('POST', { prompt, system: GENERATION_SYSTEM }),
+        articleJson('POST', {
+          prompt,
+          system: GENERATION_SYSTEM,
+          structured: true,
+        }),
         { timeoutMs: 240_000 },
       );
-      if (!response.text?.trim() || !response.safeHtml?.trim())
+      if (
+        !response.text?.trim() ||
+        !response.safeHtml?.trim() ||
+        !response.metadata
+      )
         throw new Error('Сервис не вернул пригодный текст.');
       setResult(response);
+      setMetadata(response.metadata);
+      setImageAlt(
+        slot === 'cover'
+          ? response.metadata.imageAlt
+          : response.metadata.inlineImageAlts[0] || '',
+      );
+      setInlineAltIndex(0);
       setResultApplied(false);
       setNotice(
         'Черновик получен. Проверьте нормы и факты перед применением. Стоимость смотрите в кабинете шлюза.',
+      );
+    });
+  }
+  async function importChat() {
+    await run('chat', async () => {
+      await flush();
+      const url = current.current.chatUrl.trim();
+      if (!url) throw new Error('Вставьте общую ссылку на чат ChatGPT.');
+      const imported = await articleRequest<ShareImport>(
+        '/api/admin/ai/share-import',
+        articleJson('POST', { url }),
+      );
+      if (!imported.text?.trim())
+        throw new Error('Текст чата не найден. Вставьте его вручную.');
+      if (imported.text.length > 100_000)
+        throw new Error(
+          'Чат слишком длинный для одного запроса. Скопируйте нужные сообщения в поле ниже.',
+        );
+      if (
+        current.current.chatContext.trim() &&
+        current.current.chatContext !== imported.text &&
+        !window.confirm('Заменить сохранённый текст чата загруженной версией?')
+      )
+        return;
+      update({
+        chatContext: imported.text,
+        chatEnabled: true,
+        chatOmittedParts:
+          Number.isSafeInteger(imported.omittedParts) &&
+          imported.omittedParts > 0
+            ? imported.omittedParts
+            : 0,
+      });
+      await flush();
+      setNotice(
+        `Загружено сообщений: ${imported.messageCount}. Проверьте текст чата перед генерацией.`,
       );
     });
   }
@@ -413,6 +501,7 @@ export default function AIAssistant({
       )
         return;
       const requestId = crypto.randomUUID();
+      setSeoNameOverride(null);
       setImage('');
       setImageJob(undefined);
       try {
@@ -596,6 +685,65 @@ export default function AIAssistant({
           Сохранить подключение
         </button>
       </details>
+      <details>
+        <summary>Контекст чата ChatGPT</summary>
+        <p className="article-ai-note">
+          Вставьте общую ссылку на чат и загрузите доступные сообщения. Ссылка
+          личного чата обычно содержит снимок: после новых сообщений её нужно
+          обновить в ChatGPT и загрузить заново. Замена ссылки сама по себе не
+          обновляет текст. Любой, у кого есть ссылка, может увидеть
+          опубликованный чат.
+        </p>
+        <label>
+          Ссылка на общий чат ChatGPT
+          <input
+            type="url"
+            value={draft.chatUrl}
+            disabled={blocked}
+            placeholder="https://chatgpt.com/share/…"
+            onChange={(event) => patch('chatUrl', event.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={blocked || !draft.chatUrl.trim()}
+          onClick={() => void importChat()}
+        >
+          Загрузить текст чата
+        </button>
+        <p className="article-ai-note">
+          Если общая ссылка недоступна для автоматического чтения, вставьте
+          нужные сообщения вручную. Прикреплённые к чату документы и изображения
+          автоматически не читаются: загрузите необходимые оригиналы отдельно.
+          Перед генерацией проверьте текст: он будет отправлен выбранному
+          сервису вместе с заданием.
+        </p>
+        {draft.chatOmittedParts > 0 && (
+          <p className="form-error" role="alert">
+            Не удалось прочитать нетекстовых вложений или частей:{' '}
+            {draft.chatOmittedParts}. Добавьте необходимые документы отдельно.
+          </p>
+        )}
+        <label>
+          Текст и правила из чата
+          <textarea
+            rows={8}
+            value={draft.chatContext}
+            disabled={blocked}
+            onChange={(event) => patch('chatContext', event.target.value)}
+            placeholder="Здесь появятся сообщения из чата; их также можно вставить вручную."
+          />
+        </label>
+        <label className="article-ai-check">
+          <input
+            type="checkbox"
+            checked={draft.chatEnabled}
+            disabled={blocked}
+            onChange={(event) => patch('chatEnabled', event.target.checked)}
+          />{' '}
+          Учитывать этот чат при создании статьи
+        </label>
+      </details>
       <details open>
         <summary>2 · Стиль и материалы</summary>
         <label>
@@ -729,10 +877,7 @@ export default function AIAssistant({
               onClick={() =>
                 void run('apply', async () => {
                   await flush();
-                  await onApplyText(
-                    result.safeHtml,
-                    draft.topic.trim() || articleTitle,
-                  );
+                  await onApplyText(result.safeHtml);
                   setResultApplied(true);
                   setNotice(
                     'Текст перенесён в редактор. Проверьте его перед сохранением.',
@@ -742,14 +887,109 @@ export default function AIAssistant({
             >
               Перенести в редактор
             </button>
+            {metadata && (
+              <div className="article-ai-metadata">
+                <h3>Заголовок, URL и SEO</h3>
+                <p className="article-ai-note">
+                  Проверьте и при необходимости измените предложения. Alt
+                  составлен по описанию сюжета: сверьте его с готовой картинкой.
+                </p>
+                <label>
+                  Тема кластера
+                  <input
+                    value={metadata.clusterTopic}
+                    maxLength={500}
+                    disabled={blocked}
+                    onChange={(event) =>
+                      setMetadata({
+                        ...metadata,
+                        clusterTopic: event.target.value,
+                      })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={blocked || !metadata.clusterTopic.trim()}
+                  onClick={() =>
+                    void run('apply-topic', async () => {
+                      if (
+                        current.current.topic.trim() &&
+                        current.current.topic.trim() !==
+                          metadata.clusterTopic.trim() &&
+                        !window.confirm(
+                          'Заменить сохранённую тему кластера предложенной?',
+                        )
+                      )
+                        return;
+                      patch('topic', metadata.clusterTopic.trim());
+                      await flush();
+                      setNotice('Тема кластера сохранена в материалах.');
+                    })
+                  }
+                >
+                  Сохранить тему кластера
+                </button>
+                {(
+                  [
+                    ['title', 'Заголовок статьи', 240],
+                    ['slug', 'URL статьи /blog/', 160],
+                    ['seoTitle', 'SEO Title', 240],
+                    ['seoDescription', 'SEO Description', 500],
+                    ['imageAlt', 'Alt обложки', 500],
+                  ] as const
+                ).map(([key, label, limit]) => (
+                  <label key={key}>
+                    {label}
+                    <input
+                      value={metadata[key]}
+                      maxLength={limit}
+                      disabled={blocked}
+                      onChange={(event) =>
+                        setMetadata({ ...metadata, [key]: event.target.value })
+                      }
+                    />
+                  </label>
+                ))}
+                {[0, 1, 2].map((index) => (
+                  <label key={index}>
+                    Alt иллюстрации {index + 1}
+                    <input
+                      value={metadata.inlineImageAlts[index] || ''}
+                      maxLength={500}
+                      disabled={blocked}
+                      onChange={(event) => {
+                        const inlineImageAlts = [...metadata.inlineImageAlts];
+                        inlineImageAlts[index] = event.target.value;
+                        setMetadata({ ...metadata, inlineImageAlts });
+                      }}
+                    />
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  disabled={blocked}
+                  onClick={() =>
+                    void run('apply-metadata', async () => {
+                      await onApplyMetadata(metadata);
+                      setNotice(
+                        'Поля перенесены в редактор. Проверьте их перед сохранением.',
+                      );
+                    })
+                  }
+                >
+                  Перенести заголовок и SEO в редактор
+                </button>
+              </div>
+            )}
           </>
         )}
       </details>
       <details>
         <summary>4 · Фото Николая и изображение</summary>
         <p className="article-ai-note">
-          Выберите до двух фото (JPG, PNG или WEBP, до 5 МБ каждое). Для
-          передачи двух фотографий шлюз должен поддерживать такой запрос.
+          Выберите до двух фото (JPG, PNG или WEBP, до 20 МБ каждое). Большие
+          снимки сжимаются на вашем компьютере; исходные файлы не изменяются.
         </p>
         <div className="article-ai-photos">
           {([0, 1] as const).map((index) => (
@@ -855,7 +1095,8 @@ export default function AIAssistant({
             {imageJob.status === 'failed' &&
               `Генерация завершилась ошибкой: ${imageJob.error || 'проверьте настройки сервиса.'}`}
             {imageJob.status === 'unknown' &&
-              'Результат неизвестен. Проверьте статус и расходы, прежде чем отправлять запрос повторно.'}
+              (imageJob.error ||
+                'Результат неизвестен. Проверьте статус и расходы, прежде чем отправлять запрос повторно.')}
             {imageJob.status === 'expired' &&
               'Срок хранения изображения истёк.'}
             {imageJob.status !== 'succeeded' && (
@@ -881,9 +1122,17 @@ export default function AIAssistant({
               <select
                 value={slot}
                 disabled={blocked}
-                onChange={(event) =>
-                  setSlot(event.target.value === 'inline' ? 'inline' : 'cover')
-                }
+                onChange={(event) => {
+                  const next =
+                    event.target.value === 'inline' ? 'inline' : 'cover';
+                  setSlot(next);
+                  if (metadata)
+                    setImageAlt(
+                      next === 'cover'
+                        ? metadata.imageAlt
+                        : metadata.inlineImageAlts[inlineAltIndex] || '',
+                    );
+                }}
               >
                 <option value="cover">Обложка</option>
                 <option value="inline">В текст перед H2</option>
@@ -892,18 +1141,46 @@ export default function AIAssistant({
             <label>
               Описание изображения (alt)
               <input
-                maxLength={300}
+                maxLength={500}
                 value={imageAlt}
                 disabled={blocked}
                 onChange={(event) => setImageAlt(event.target.value)}
               />
             </label>
+            <label>
+              Имя файла для сайта (SEO)
+              <input
+                maxLength={120}
+                value={seoNameOverride ?? suggestedFileName}
+                disabled={blocked}
+                onChange={(event) => setSeoNameOverride(event.target.value)}
+              />
+            </label>
+            <p className="article-ai-note">
+              Имя станет частью адреса изображения; сайт сохранит файл в WebP и
+              при совпадении добавит порядковый номер.
+            </p>
             <button
               type="button"
-              disabled={blocked || !imageAlt.trim()}
+              disabled={
+                blocked ||
+                !imageAlt.trim() ||
+                !(seoNameOverride ?? suggestedFileName).trim()
+              }
               onClick={() =>
                 void run('apply', async () => {
-                  await onApplyImage(imageFile(image), slot, imageAlt.trim());
+                  await onApplyImage(
+                    imageFile(image),
+                    slot,
+                    imageAlt.trim(),
+                    (seoNameOverride ?? suggestedFileName).trim(),
+                  );
+                  setSeoNameOverride(null);
+                  if (slot === 'inline' && metadata) {
+                    const next = Math.min(2, inlineAltIndex + 1);
+                    setInlineAltIndex(next);
+                    setImageAlt(metadata.inlineImageAlts[next] || '');
+                  }
                   setNotice('Изображение перенесено в редактор.');
                 })
               }

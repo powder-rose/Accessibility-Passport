@@ -556,7 +556,7 @@ test('backups exclude live sessions without logging out the source and restored 
   const cookie = await app.cookie();
   const snapshot = join(app.directory, 'snapshot');
   const backup = await createBackup(app.config.databasePath, snapshot);
-  assert.equal(backup.schemaVersion, 6);
+  assert.equal(backup.schemaVersion, 7);
   assert.equal(backup.counts.admin_sessions, 0);
   assert.equal(backup.counts.admin_credentials, 1);
   assert.equal(

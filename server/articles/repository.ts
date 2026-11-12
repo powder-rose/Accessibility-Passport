@@ -215,7 +215,7 @@ export class ArticleRepository {
     if (!result.changes)
       throw new ArticleError('Статья уже изменена. Обновите список.', 409);
   }
-  addImage(bytes: Buffer, width: number, height: number) {
+  addImage(bytes: Buffer, width: number, height: number, seoName?: string) {
     return inImmediateTransaction(this.db, () => {
       const used = this.db
         .prepare('SELECT COALESCE(SUM(size),0) AS size FROM article_images')
@@ -225,7 +225,28 @@ export class ArticleRepository {
           'Хранилище изображений заполнено. Обратитесь к администратору.',
           503,
         );
-      const id = randomUUID();
+      let id: string = randomUUID();
+      if (seoName !== undefined) {
+        // The database key itself is the filename. This keeps all image
+        // references and old UUID-based URLs compatible without a migration.
+        const base = articleSlug(seoName.replace(/\.(?:jpe?g|png|webp)$/i, ''))
+          .slice(0, 120)
+          .replace(/-+$/, '');
+        if (!base)
+          throw new ArticleError('Укажите понятное название изображения.');
+        const exists = this.db.prepare(
+          'SELECT 1 FROM article_images WHERE id=?',
+        );
+        id = base;
+        let suffix = 2;
+        while (exists.get(id)) {
+          if (suffix > 10000)
+            throw new ArticleError(
+              'Не удалось подобрать уникальное имя изображения.',
+            );
+          id = base + '-' + suffix++;
+        }
+      }
       this.db
         .prepare('INSERT INTO article_images VALUES (?,?,?,?,?,?,?)')
         .run(

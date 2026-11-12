@@ -9,6 +9,11 @@ import {
 import { sanitizeArticleContent } from '../articles/html';
 import { baseUrl, readSettings, saveSettings } from './settings';
 import {
+  importSharedChat,
+  pinnedSharedChatTransport,
+  type ShareTransport,
+} from './shared-chat';
+import {
   callGateway,
   imageResult,
   parseReference,
@@ -48,6 +53,24 @@ const textSchema = z
   .object({
     prompt: z.string().trim().min(1).max(120000),
     system: z.string().max(24000).optional(),
+    structured: z.boolean().optional(),
+  })
+  .strict();
+const generatedArticleSchema = z
+  .object({
+    clusterTopic: z.string().trim().min(1).max(500),
+    title: z.string().trim().min(1).max(240),
+    slug: z
+      .string()
+      .trim()
+      .min(1)
+      .max(160)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    seoTitle: z.string().trim().min(1).max(240),
+    seoDescription: z.string().trim().min(1).max(500),
+    imageAlt: z.string().trim().min(1).max(500),
+    inlineImageAlts: z.array(z.string().trim().min(1).max(500)).length(3),
+    articleHtml: z.string().trim().min(1).max(300000),
   })
   .strict();
 const imageSchema = z
@@ -64,8 +87,34 @@ function outputHtml(text: string) {
     .replace(/\s*```\s*$/, '');
   return sanitizeArticleContent(html).replace(/<img\b[^>]*>/gi, '');
 }
+function structuredArticle(raw: string) {
+  const text = raw
+    .replace(/^\s*```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/, '');
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error(
+      'Модель вернула некорректный формат статьи. Данные не применены; запрос автоматически не повторяется.',
+    );
+  }
+  const parsed = generatedArticleSchema.safeParse(value);
+  if (!parsed.success)
+    throw new Error(
+      'Модель вернула некорректные поля статьи или SEO. Данные не применены; запрос автоматически не повторяется.',
+    );
+  const { articleHtml, ...metadata } = parsed.data;
+  const safeHtml = outputHtml(articleHtml);
+  if (!safeHtml.replace(/<[^>]*>|&nbsp;|&#160;/gi, '').trim())
+    throw new Error(
+      'В ответе модели нет пригодного текста статьи. Данные не применены.',
+    );
+  return { text: articleHtml, safeHtml, metadata };
+}
 export function createAiEndpoints(
   transport: Transport = pinnedTransport,
+  shareTransport: ShareTransport = pinnedSharedChatTransport,
 ): Record<string, Record<string, ApiHandler>> {
   async function protectedRequest(
     request: Request,
@@ -102,6 +151,20 @@ export function createAiEndpoints(
       } catch {
         return Response.json({ configured: false, requiresKey: true });
       }
+    });
+  const shareImport: ApiHandler = (request, context) =>
+    protectedRequest(request, context, async () => {
+      if (!(await rateLimit(context, 'ai-share-import', 30, 600)))
+        return jsonError('Слишком много запросов. Попробуйте позже.', 429);
+      const input = z
+        .object({ url: z.string().max(200) })
+        .strict()
+        .safeParse(await request.json());
+      if (!input.success)
+        return jsonError('Укажите публичную ссылку на чат ChatGPT.');
+      return Response.json(
+        await importSharedChat(input.data.url, shareTransport),
+      );
     });
   const configure: ApiHandler = (request, context) =>
     protectedRequest(request, context, async () => {
@@ -144,6 +207,7 @@ export function createAiEndpoints(
         const payload = parsed.data as {
           prompt: string;
           system?: string;
+          structured?: boolean;
           referenceDataUrls?: string[];
         };
         const refs = (payload.referenceDataUrls || []).map(parseReference);
@@ -184,8 +248,9 @@ export function createAiEndpoints(
               usage[field] = n;
           }
           return Response.json({
-            text,
-            safeHtml: outputHtml(text),
+            ...(payload.structured
+              ? structuredArticle(text)
+              : { text, safeHtml: outputHtml(text) }),
             ...(Object.keys(usage).length ? { usage } : {}),
           });
         } finally {
@@ -248,13 +313,16 @@ export function createAiEndpoints(
             transport,
           );
           finishJob(context.config, requestId, {
-            dataUrl: imageResult(result),
+            dataUrl: await imageResult(result),
           });
-        } catch {
+        } catch (error) {
           try {
             finishJob(context.config, requestId, {
               error:
-                'Результат запроса не подтверждён. Проверьте историю сервиса и расходы перед повтором.',
+                error instanceof Error &&
+                error.message.startsWith('Не удалось подготовить WebP.')
+                  ? error.message
+                  : 'Результат запроса не подтверждён. Проверьте историю сервиса и расходы перед повтором.',
             });
           } catch {
             /* the durable running record will be reported as unknown */
@@ -346,6 +414,7 @@ export function createAiEndpoints(
       });
   return {
     '/api/admin/ai/status': { GET: status },
+    '/api/admin/ai/share-import': { POST: shareImport },
     '/api/admin/ai/config': { POST: configure },
     '/api/admin/ai/text': { POST: generate('text') },
     '/api/admin/ai/image': { POST: createImage },

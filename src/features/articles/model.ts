@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-export const articleImagePath = /^\/media\/articles\/[a-f0-9-]{36}\.webp$/;
+// UUIDs from older uploads stay valid. New descriptive names use the same
+// bounded ASCII alphabet as article slugs; no path segments or query strings.
+export const articleImageId =
+  /^(?=.{1,160}$)(?:[a-f0-9-]{36}|[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+export const articleImagePath =
+  /^\/media\/articles\/((?=.{1,160}\.webp$)(?:[a-f0-9-]{36}|[a-z0-9]+(?:-[a-z0-9]+)*))\.webp$/;
 export const articleFormSchema = z.object({
   title: z.string().trim().max(240),
   slug: z.string().trim().max(180),

@@ -6,6 +6,7 @@ import ArticleFields from './ArticleFields';
 import AIAssistant from '../ai/AIAssistant';
 import { aiContentHasValue, cleanAiContent, insertAiImage } from './ai-content';
 import { imageSelectionError, uploadImage } from './api';
+import { planAiMetadata, type AiMetadata } from './ai-metadata';
 
 async function prepareAiCover(file: File): Promise<File> {
   const url = URL.createObjectURL(file);
@@ -95,10 +96,47 @@ export default function ArticleEdit({ id }: { id?: string }) {
     if (!editor.form.title.trim() && title?.trim())
       editor.change('title', title.trim());
   }
+  async function applyAiMetadata(metadata: AiMetadata) {
+    // Parse the current editor HTML inertly and preserve all other nodes/attributes.
+    const template = document.createElement('template');
+    template.innerHTML = editor.form.content;
+    const images = Array.from(template.content.querySelectorAll('img'));
+    const plan = planAiMetadata(
+      editor.form,
+      metadata,
+      images.map((image) => image.getAttribute('alt') || ''),
+    );
+    if (!Object.keys(plan.fields).length && !plan.inline.length)
+      throw new Error('Нет новых данных для применения к этой статье.');
+    if (
+      plan.overwrites.length &&
+      !window.confirm(
+        `Заменить уже заполненные поля: ${plan.overwrites.join(', ')}? Проверьте alt по самим изображениям.`,
+      )
+    )
+      throw new Error('Применение данных отменено.');
+    if (plan.fields.title !== undefined)
+      editor.change('title', plan.fields.title);
+    if (plan.fields.slug !== undefined) editor.change('slug', plan.fields.slug);
+    if (plan.fields.seoTitle !== undefined)
+      editor.change('seoTitle', plan.fields.seoTitle);
+    if (plan.fields.seoDescription !== undefined)
+      editor.change('seoDescription', plan.fields.seoDescription);
+    if (plan.fields.imageAlt !== undefined)
+      editor.change('imageAlt', plan.fields.imageAlt);
+    if (plan.inline.length) {
+      for (const update of plan.inline)
+        images[update.index].setAttribute('alt', update.alt);
+      const output = document.createElement('div');
+      output.append(template.content);
+      editor.change('content', output.innerHTML);
+    }
+  }
   async function applyAiImage(
     file: File,
     slot: 'cover' | 'inline',
     alt: string,
+    seoName: string,
   ) {
     const problem = imageSelectionError(file);
     if (problem) throw new Error(problem);
@@ -120,7 +158,10 @@ export default function ArticleEdit({ id }: { id?: string }) {
     setAiApplying(true);
     try {
       const prepared = slot === 'cover' ? await prepareAiCover(file) : file;
-      const uploaded = await uploadImage(prepared);
+      const uploaded = await uploadImage(
+        prepared,
+        seoName.trim() || description,
+      );
       if (slot === 'cover') {
         editor.change('image', uploaded.url);
         editor.change('imageAlt', description);
@@ -232,6 +273,7 @@ export default function ArticleEdit({ id }: { id?: string }) {
           articleTitle={editor.form.title}
           articleContent={editor.form.content}
           onApplyText={applyAiText}
+          onApplyMetadata={applyAiMetadata}
           onApplyImage={applyAiImage}
           onClose={() => setAiOpen(false)}
         />

@@ -13,10 +13,16 @@ export async function uploadArticleImage(
     throw new ArticleError('Не удалось прочитать изображение.');
   }
   const files = form.getAll('image');
+  const names = form.getAll('seoName');
   if (
     files.length !== 1 ||
     !(files[0] instanceof File) ||
-    [...form.keys()].some((key) => key !== 'image')
+    names.length > 1 ||
+    (names.length === 1 &&
+      (typeof names[0] !== 'string' ||
+        !names[0].trim() ||
+        names[0].length > 500)) ||
+    [...form.keys()].some((key) => key !== 'image' && key !== 'seoName')
   )
     throw new ArticleError('Выберите одно изображение.');
   const file = files[0];
@@ -69,6 +75,7 @@ export async function uploadArticleImage(
         result.data,
         result.info.width,
         result.info.height,
+        names[0] as string | undefined,
       ),
     });
   } catch (error) {

@@ -58,7 +58,9 @@ function fixture(t) {
     .prepare('INSERT INTO article_images VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(imageId, image, 10, 10, image.length, hash(image), timestamp);
   writer
-    .prepare('INSERT INTO articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .prepare(
+      'INSERT INTO articles(id,request_id,request_hash,slug,status,category,payload,revision,created_at,updated_at,published_at,deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    )
     .run(
       'article',
       'request',

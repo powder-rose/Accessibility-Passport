@@ -5,7 +5,7 @@ export interface ArticleQuery {
   page: number;
   category: string;
   search: string;
-  status: 'all' | 'draft' | 'published';
+  status: 'all' | 'draft' | 'published' | 'scheduled';
 }
 export const initialArticleQuery: ArticleQuery = {
   page: 1,

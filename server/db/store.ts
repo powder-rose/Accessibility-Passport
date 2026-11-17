@@ -20,6 +20,7 @@ import { inImmediateTransaction } from './transaction';
 import { statisticsSchema } from '../statistics/migration';
 import { StatisticsQueries } from '../statistics/queries';
 import { TrafficRepository } from '../statistics/traffic';
+import { articleScheduleSchema } from '../articles/schedule-migration';
 
 export class Store {
   private readonly db: DatabaseSync;
@@ -37,7 +38,7 @@ export class Store {
     const version = this.db.prepare('PRAGMA user_version').get() as {
       user_version: number;
     };
-    if (version.user_version > 5)
+    if (version.user_version > 6)
       throw new Error('Unsupported database schema version.');
     if (version.user_version === 0) {
       inImmediateTransaction(this.db, () => {
@@ -67,6 +68,12 @@ export class Store {
       inImmediateTransaction(this.db, () => {
         this.db.exec(statisticsSchema);
         this.db.exec('PRAGMA user_version=5');
+      });
+    }
+    if (version.user_version < 6) {
+      inImmediateTransaction(this.db, () => {
+        this.db.exec(articleScheduleSchema);
+        this.db.exec('PRAGMA user_version=6');
       });
     }
     this.articles = new ArticleRepository(this.db);
@@ -187,8 +194,9 @@ export class Store {
   }
   isAvailable(): boolean {
     try {
-      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 5)
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 6)
         return false;
+      this.db.prepare('SELECT scheduled_at FROM articles LIMIT 1').get();
       for (const table of [
         'leads',
         'lead_attachments',

@@ -11,6 +11,7 @@ import type {
   ArticleQuery,
 } from '@/features/articles/listing';
 import { useArticleList } from './useArticleList';
+import { scheduledDate } from '@/features/articles/schedule';
 
 export default function ArticlesList() {
   const list = useArticleList();
@@ -88,6 +89,7 @@ export default function ArticlesList() {
             ['all', 'Все'],
             ['published', 'Опубликованные'],
             ['draft', 'Черновики'],
+            ['scheduled', 'Запланированные'],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -153,9 +155,16 @@ export default function ArticlesList() {
                   >
                     {article.status === 'published'
                       ? 'Опубликовано'
-                      : 'Черновик'}
+                      : article.status === 'scheduled'
+                        ? 'Запланировано'
+                        : 'Черновик'}
                   </span>
                   <h2>{article.title || 'Без названия'}</h2>
+                  {article.status === 'scheduled' && (
+                    <p className="article-schedule-date">
+                      Публикация: {scheduledDate(article.scheduledAt)}
+                    </p>
+                  )}
                   <label>
                     Категория
                     <input
@@ -203,15 +212,16 @@ export default function ArticlesList() {
               </article>
             ))}
           </div>
-          {error && (
+          {
             <button
               type="button"
               className="article-retry"
+              disabled={loading || !!pending}
               onClick={list.refresh}
             >
               Обновить список
             </button>
-          )}
+          }
           {list.listing.pages > 1 && (
             <nav className="cms-leads-pagination" aria-label="Страницы статей">
               <button

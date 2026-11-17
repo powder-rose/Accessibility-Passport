@@ -47,7 +47,7 @@ function openDatabase(filename) {
 
 function checkVersion(database) {
   const version = database.prepare('PRAGMA user_version').get().user_version;
-  if (![3, 4, 5].includes(version))
+  if (![3, 4, 5, 6].includes(version))
     throw new RecoveryError(
       'Unsupported database schema; use matching application code.',
     );
@@ -59,6 +59,8 @@ function inspectDatabase(filename) {
   try {
     database.exec('PRAGMA trusted_schema=OFF; PRAGMA query_only=ON;');
     const schemaVersion = checkVersion(database);
+    if (schemaVersion >= 6)
+      database.prepare('SELECT scheduled_at FROM articles LIMIT 1').get();
     if (database.prepare('PRAGMA journal_mode').get().journal_mode !== 'delete')
       throw new RecoveryError(
         'Snapshot must use standalone DELETE journal mode.',
@@ -205,7 +207,7 @@ export async function verifyBackup(snapshotPath) {
   if (
     !manifest ||
     manifest.formatVersion !== 1 ||
-    ![3, 4, 5].includes(manifest.schemaVersion) ||
+    ![3, 4, 5, 6].includes(manifest.schemaVersion) ||
     typeof manifest.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(manifest.createdAt)) ||
     !Number.isSafeInteger(manifest.size) ||

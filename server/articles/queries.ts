@@ -10,13 +10,13 @@ import {
   type ArticleQuery,
 } from '../../src/features/articles/listing';
 
-const projection = `id,slug,status,category,revision,
+const projection = `id,slug,CASE WHEN scheduled_at IS NOT NULL THEN 'scheduled' ELSE status END AS status,category,revision,
   json_extract(payload,'$.title') AS title,
   json_extract(payload,'$.image') AS image,
   json_extract(payload,'$.imageAlt') AS imageAlt,
   json_extract(payload,'$.seoTitle') AS seoTitle,
   json_extract(payload,'$.seoDescription') AS seoDescription,
-  created_at AS createdAt,updated_at AS updatedAt,published_at AS publishedAt`;
+  created_at AS createdAt,updated_at AS updatedAt,published_at AS publishedAt,scheduled_at AS scheduledAt`;
 const order = 'COALESCE(published_at,created_at) DESC,id';
 const published = "deleted_at IS NULL AND status='published'";
 const publicSummary = ({
@@ -57,8 +57,11 @@ export class ArticleQueries {
     const conditions = ['deleted_at IS NULL'];
     const parameters: string[] = [];
     const status = admin ? query.status : 'published';
-    if (status !== 'all') {
+    if (status === 'scheduled') {
+      conditions.push("status='draft' AND scheduled_at IS NOT NULL");
+    } else if (status !== 'all') {
       conditions.push('status=?');
+      if (status === 'draft') conditions.push('scheduled_at IS NULL');
       parameters.push(status);
     }
     if (query.category) {

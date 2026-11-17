@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { inImmediateTransaction } from '../server/db/transaction';
 import { initialSchema, attachmentSchema } from '../server/db/migrations';
 import { articleSchema } from '../server/articles/migration';
+import { articleScheduleSchema } from '../server/articles/schedule-migration';
 import { authSchema } from '../server/auth/migration';
 import { ArticleRepository } from '../server/articles/repository';
 import { AdminRepository } from '../server/auth/repository';
@@ -25,7 +26,13 @@ function database(t: TestContext) {
 function repositories(t: TestContext) {
   const db = database(t);
   db.exec(
-    [initialSchema, attachmentSchema, articleSchema, authSchema].join(';'),
+    [
+      initialSchema,
+      attachmentSchema,
+      articleSchema,
+      authSchema,
+      articleScheduleSchema,
+    ].join(';'),
   );
   return {
     db,
@@ -108,7 +115,7 @@ test('a failed migration preserves its original error, schema version and preexi
     assert.equal(
       (db.prepare('PRAGMA user_version').get() as { user_version: number })
         .user_version,
-      5,
+      6,
     );
   } finally {
     retried.close();
@@ -462,7 +469,7 @@ test('lead attachments remain atomic and duplicate early returns commit cleanly 
   assert.equal(
     (db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
-    5,
+    6,
   );
   assert.equal(store.findLeadHash('synthetic-lead'), 'synthetic-hash');
   assert.equal(store.listLeadPage({ limit: 10 }).total, 2);

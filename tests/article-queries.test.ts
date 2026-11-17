@@ -154,7 +154,7 @@ test('article query validation bounds pages and filters and rejects duplicate or
     '?page=2&page=3',
     '?q=' + 'a'.repeat(101),
     '?category=' + 'a'.repeat(81),
-    '?status=scheduled',
+    '?status=paused',
   ])
     assert.throws(
       () =>

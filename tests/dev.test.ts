@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 test(
   'actual dev command remains stable after Vite config loading, SSR requests and SQLite writes',
-  { timeout: 30000 },
+  { timeout: 90000 },
   async () => {
     const directory = mkdtempSync(join(tmpdir(), 'passport-dev-test-'));
     const packageJson = JSON.parse(
@@ -53,8 +53,13 @@ test(
         await delay(100);
       }
       assert.ok(origin, 'Dev server did not become ready: ' + output);
+      // The first SSR request compiles Vite modules; cold Windows runs can take
+      // longer than six seconds when the machine is also running quality checks.
+      const networkTimeout = 15000;
       for (let i = 0; i < 3; i++) {
-        const page = await fetch(origin, { signal: AbortSignal.timeout(6000) });
+        const page = await fetch(origin, {
+          signal: AbortSignal.timeout(networkTimeout),
+        });
         assert.equal(page.status, 200);
         assert.ok((await page.text()).includes('id="hero-title"'));
       }
@@ -73,7 +78,7 @@ test(
           pageUrl: origin + '/',
           utm: {},
         }),
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(networkTimeout),
       });
       assert.equal(response.status, 200);
       await delay(2500);
@@ -81,7 +86,8 @@ test(
       assert.equal((output.match(/Server ready at/g) || []).length, 1, output);
       assert.doesNotMatch(output, /Restarting/);
       assert.equal(
-        (await fetch(origin, { signal: AbortSignal.timeout(6000) })).status,
+        (await fetch(origin, { signal: AbortSignal.timeout(networkTimeout) }))
+          .status,
         200,
       );
     } finally {

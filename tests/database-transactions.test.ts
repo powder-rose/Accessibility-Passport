@@ -92,7 +92,8 @@ test('a failed migration preserves its original error, schema version and preexi
     );
   } finally {
     inject.mock.restore();
-    for (const connection of failedConnections) connection.close();
+    for (const connection of failedConnections)
+      assert.equal(connection.isOpen, false);
   }
   const db = new DatabaseSync(filename);
   t.after(() => {
@@ -115,7 +116,7 @@ test('a failed migration preserves its original error, schema version and preexi
     assert.equal(
       (db.prepare('PRAGMA user_version').get() as { user_version: number })
         .user_version,
-      6,
+      8,
     );
   } finally {
     retried.close();
@@ -469,7 +470,7 @@ test('lead attachments remain atomic and duplicate early returns commit cleanly 
   assert.equal(
     (db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
-    6,
+    8,
   );
   assert.equal(store.findLeadHash('synthetic-lead'), 'synthetic-hash');
   assert.equal(store.listLeadPage({ limit: 10 }).total, 2);

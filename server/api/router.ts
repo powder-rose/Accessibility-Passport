@@ -14,8 +14,10 @@ import * as attachments from './attachments';
 import { articleEndpoint } from '../articles/api';
 import * as storage from './storage';
 import * as statistics from './statistics';
+import { aiEndpoints } from '../ai/api';
 
 const endpoints: Record<string, Record<string, ApiHandler>> = {
+  ...aiEndpoints,
   '/api/leads': { POST: leads.POST },
   '/api/analytics/pageview': { POST: statistics.pageview },
   '/api/admin/statistics': { GET: statistics.report },
@@ -37,7 +39,11 @@ export function apiRouter(
     const path = url.pathname.replace(/\/$/, '');
     const endpoint = /^\/api\/admin\/attachments\/[a-f0-9-]{36}$/.test(path)
       ? { GET: attachments.download }
-      : endpoints[path] || articleEndpoint(path);
+      : endpoints[path] ||
+        (/^\/api\/admin\/ai\/image-jobs\/[0-9a-f-]{36}$/i.test(path)
+          ? endpoints['/api/admin/ai/image-jobs/*']
+          : undefined) ||
+        articleEndpoint(path);
     let response: Response;
     const handler = endpoint?.[req.method];
     if (!endpoint) response = jsonError('Страница не найдена.', 404);

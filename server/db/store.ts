@@ -18,9 +18,13 @@ import { StorageRepository } from '../storage/repository';
 import { storageLimits } from '../../src/lib/storage';
 import { inImmediateTransaction } from './transaction';
 import { statisticsSchema } from '../statistics/migration';
+import { articleScheduleSchema } from '../articles/schedule-migration';
 import { StatisticsQueries } from '../statistics/queries';
 import { TrafficRepository } from '../statistics/traffic';
-import { articleScheduleSchema } from '../articles/schedule-migration';
+import {
+  aiMaterialsSchema,
+  AiMaterialsRepository,
+} from '../ai/materials-repository';
 
 export class Store {
   private readonly db: DatabaseSync;
@@ -29,58 +33,89 @@ export class Store {
   readonly storage: StorageRepository;
   readonly statistics: StatisticsQueries;
   readonly traffic: TrafficRepository;
+  readonly aiMaterials: AiMaterialsRepository;
   constructor(filename: string) {
     if (filename !== ':memory:')
       mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(filename, { timeout: 5000 });
-    if (filename !== ':memory:') chmodSync(filename, 0o600);
-    this.db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
-    const version = this.db.prepare('PRAGMA user_version').get() as {
-      user_version: number;
-    };
-    if (version.user_version > 6)
-      throw new Error('Unsupported database schema version.');
-    if (version.user_version === 0) {
-      inImmediateTransaction(this.db, () => {
-        this.db.exec(initialSchema);
-        this.db.exec('PRAGMA user_version=1');
-      });
+    try {
+      if (filename !== ':memory:') chmodSync(filename, 0o600);
+      this.db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
+      const version = this.db.prepare('PRAGMA user_version').get() as {
+        user_version: number;
+      };
+      if (version.user_version > 8)
+        throw new Error('Unsupported database schema version.');
+      if (version.user_version === 0) {
+        inImmediateTransaction(this.db, () => {
+          this.db.exec(initialSchema);
+          this.db.exec('PRAGMA user_version=1');
+        });
+      }
+      if (version.user_version < 2) {
+        inImmediateTransaction(this.db, () => {
+          this.db.exec(attachmentSchema);
+          this.db.exec('PRAGMA user_version=2');
+        });
+      }
+      if (version.user_version < 3) {
+        inImmediateTransaction(this.db, () => {
+          this.db.exec(articleSchema);
+          this.db.exec('PRAGMA user_version=3');
+        });
+      }
+      if (version.user_version < 4) {
+        inImmediateTransaction(this.db, () => {
+          this.db.exec(authSchema);
+          this.db.exec('PRAGMA user_version=4');
+        });
+      }
+      if (version.user_version < 5) {
+        inImmediateTransaction(this.db, () => {
+          this.db.exec(statisticsSchema);
+          this.db.exec('PRAGMA user_version=5');
+        });
+      }
+      if (version.user_version < 8) {
+        inImmediateTransaction(this.db, () => {
+          // Two released branches used version 6 for different features. Inspect
+          // their actual structures before converging on the combined schema.
+          const hasAi = !!this.db
+            .prepare(
+              "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_materials'",
+            )
+            .get();
+          const hasSchedule = this.db
+            .prepare('PRAGMA table_info(articles)')
+            .all()
+            .some((column) => column.name === 'scheduled_at');
+          if (
+            (version.user_version < 6 && (hasAi || hasSchedule)) ||
+            (version.user_version === 6 && hasAi === hasSchedule) ||
+            (version.user_version === 7 && (!hasAi || hasSchedule))
+          )
+            throw new Error(
+              'Database layout does not match its schema version.',
+            );
+          if (!hasAi) this.db.exec(aiMaterialsSchema);
+          if (!hasSchedule) this.db.exec(articleScheduleSchema);
+          this.db.exec('PRAGMA user_version=8');
+        });
+      }
+      this.articles = new ArticleRepository(this.db);
+      this.auth = new AdminRepository(this.db);
+      this.storage = new StorageRepository(this.db);
+      this.statistics = new StatisticsQueries(this.db);
+      this.traffic = new TrafficRepository(this.db);
+      this.aiMaterials = new AiMaterialsRepository(this.db);
+    } catch (error) {
+      try {
+        this.db.close();
+      } catch {
+        /* Preserve the migration error. */
+      }
+      throw error;
     }
-    if (version.user_version < 2) {
-      inImmediateTransaction(this.db, () => {
-        this.db.exec(attachmentSchema);
-        this.db.exec('PRAGMA user_version=2');
-      });
-    }
-    if (version.user_version < 3) {
-      inImmediateTransaction(this.db, () => {
-        this.db.exec(articleSchema);
-        this.db.exec('PRAGMA user_version=3');
-      });
-    }
-    if (version.user_version < 4) {
-      inImmediateTransaction(this.db, () => {
-        this.db.exec(authSchema);
-        this.db.exec('PRAGMA user_version=4');
-      });
-    }
-    if (version.user_version < 5) {
-      inImmediateTransaction(this.db, () => {
-        this.db.exec(statisticsSchema);
-        this.db.exec('PRAGMA user_version=5');
-      });
-    }
-    if (version.user_version < 6) {
-      inImmediateTransaction(this.db, () => {
-        this.db.exec(articleScheduleSchema);
-        this.db.exec('PRAGMA user_version=6');
-      });
-    }
-    this.articles = new ArticleRepository(this.db);
-    this.auth = new AdminRepository(this.db);
-    this.storage = new StorageRepository(this.db);
-    this.statistics = new StatisticsQueries(this.db);
-    this.traffic = new TrafficRepository(this.db);
   }
   findLeadHash(id: string) {
     const row = this.db
@@ -194,7 +229,7 @@ export class Store {
   }
   isAvailable(): boolean {
     try {
-      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 6)
+      if (this.db.prepare('PRAGMA user_version').get()?.user_version !== 8)
         return false;
       this.db.prepare('SELECT scheduled_at FROM articles LIMIT 1').get();
       for (const table of [
@@ -210,6 +245,7 @@ export class Store {
         'admin_sessions',
         'analytics_visits',
         'analytics_pageviews',
+        'ai_materials',
       ]) {
         // Read a bounded amount of real data, without copying BLOBs or writing.
         this.db.prepare(`SELECT 1 FROM ${table} LIMIT 1`).get();

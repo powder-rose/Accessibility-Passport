@@ -1,4 +1,4 @@
-import { articleFormSchema } from '@/features/articles/model';
+import { articleFormSchema, articleImagePath } from '@/features/articles/model';
 
 export const newArticleDraftKey = 'osi-admin-new-article-draft';
 export function draftImageIds(raw: string | null): Set<string> {
@@ -16,8 +16,11 @@ export function draftImageIds(raw: string | null): Set<string> {
   return new Set(
     [
       ...(form.data.content + ' ' + form.data.image).matchAll(
-        /\/media\/articles\/([a-f0-9-]{36})\.webp/g,
+        /\/media\/articles\/[a-z0-9-]{1,160}\.webp/g,
       ),
-    ].map((match) => match[1]),
+    ].flatMap((match) => {
+      const parsed = articleImagePath.exec(match[0]);
+      return parsed ? [parsed[1]] : [];
+    }),
   );
 }

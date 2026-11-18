@@ -223,7 +223,7 @@ test('schema 5 migration preserves content and old articles remain unscheduled',
   );
   const db = new DatabaseSync(f.filename);
   db.exec(
-    'DROP INDEX articles_schedule_idx; ALTER TABLE articles DROP COLUMN scheduled_at; PRAGMA user_version=5',
+    'DROP TABLE ai_materials; DROP INDEX articles_schedule_idx; ALTER TABLE articles DROP COLUMN scheduled_at; PRAGMA user_version=5',
   );
   db.close();
   const migrated = new Store(f.filename);
@@ -240,7 +240,7 @@ test('verified backup and restore preserve an unpublished schedule', async (t) =
   const f = fixture(t);
   const article = f.articles.save(form(), { requestId: randomUUID() });
   const snapshot = join(f.directory, 'snapshot');
-  assert.equal((await createBackup(f.filename, snapshot)).schemaVersion, 6);
+  assert.equal((await createBackup(f.filename, snapshot)).schemaVersion, 8);
   const restored = await restoreBackup(snapshot, join(f.directory, 'restored'));
   const store = new Store(restored.databasePath);
   try {

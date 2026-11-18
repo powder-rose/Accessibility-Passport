@@ -171,6 +171,28 @@
   line-height: 1.7;
   margin-top: 9px;
 }
+.article-ai-field-button {
+  display: block;
+  margin: -12px 0 24px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--secondary-ink);
+  font-size: 11px;
+  cursor: pointer;
+}
+.article-ai-field-button:hover:not(:disabled) {
+  background: var(--ink);
+  color: var(--white);
+}
+.article-ai-field-button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.article-ai-field-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .article-slug {
   display: flex;
   align-items: center;

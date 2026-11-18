@@ -42,7 +42,7 @@ npm run db:backup -- --destination ./backups/before-image-cleanup
 
 - `GET /api/admin/storage` — квоты, число и сумма размеров файлов.
 - `GET /api/admin/storage/cleanup` — ограниченный предпросмотр и общее число/размер кандидатов.
-- `POST /api/admin/storage/cleanup` — `{ "confirm": true, "images": [{ "id": "uuid", "sha256": "hex64" }] }`; 1–100 уникальных файлов.
+- `POST /api/admin/storage/cleanup` — `{ "confirm": true, "images": [{ "id": "uuid-или-seo-name", "sha256": "hex64" }] }`; 1–100 уникальных файлов.
 
 Все endpoints требуют действующую сессию и возвращают `Cache-Control: no-store`. Изменение требует того же Origin, JSON, точной схемы и соблюдения лимита 20 операций за 10 минут. Содержимое файлов и контакты не попадают в отчёт. Произвольный путь удаления не принимается; операция ограничена изображениями статей.
 

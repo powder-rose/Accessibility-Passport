@@ -47,7 +47,7 @@ function openDatabase(filename) {
 
 function checkVersion(database) {
   const version = database.prepare('PRAGMA user_version').get().user_version;
-  if (![3, 4, 5, 6].includes(version))
+  if (![3, 4, 5, 6, 7, 8].includes(version))
     throw new RecoveryError(
       'Unsupported database schema; use matching application code.',
     );
@@ -59,7 +59,25 @@ function inspectDatabase(filename) {
   try {
     database.exec('PRAGMA trusted_schema=OFF; PRAGMA query_only=ON;');
     const schemaVersion = checkVersion(database);
-    if (schemaVersion >= 6)
+    const hasAi = !!database
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ai_materials'",
+      )
+      .get();
+    const hasSchedule = database
+      .prepare('PRAGMA table_info(articles)')
+      .all()
+      .some((column) => column.name === 'scheduled_at');
+    if (
+      (schemaVersion < 6 && (hasAi || hasSchedule)) ||
+      (schemaVersion === 6 && hasAi === hasSchedule) ||
+      (schemaVersion === 7 && (!hasAi || hasSchedule)) ||
+      (schemaVersion === 8 && (!hasAi || !hasSchedule))
+    )
+      throw new RecoveryError(
+        'Snapshot layout does not match its schema version.',
+      );
+    if (hasSchedule)
       database.prepare('SELECT scheduled_at FROM articles LIMIT 1').get();
     if (database.prepare('PRAGMA journal_mode').get().journal_mode !== 'delete')
       throw new RecoveryError(
@@ -75,6 +93,7 @@ function inspectDatabase(filename) {
         ...tables,
         ...(schemaVersion >= 4 ? authTables : []),
         ...(schemaVersion >= 5 ? statisticsTables : []),
+        ...(hasAi ? ['ai_materials'] : []),
       ].map((table) => [
         table,
         database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count,
@@ -207,7 +226,7 @@ export async function verifyBackup(snapshotPath) {
   if (
     !manifest ||
     manifest.formatVersion !== 1 ||
-    ![3, 4, 5, 6].includes(manifest.schemaVersion) ||
+    ![3, 4, 5, 6, 7, 8].includes(manifest.schemaVersion) ||
     typeof manifest.createdAt !== 'string' ||
     !Number.isFinite(Date.parse(manifest.createdAt)) ||
     !Number.isSafeInteger(manifest.size) ||

@@ -24,8 +24,59 @@ export function apiBody(
     limit: '2kb',
     inflate: false,
   });
+  const aiImageBody = express.raw({
+    type: () => true,
+    limit: '16mb',
+    inflate: false,
+  });
+  const aiMaterialsBody = express.raw({
+    type: () => true,
+    limit: '8mb',
+    inflate: false,
+  });
+  const aiTextBody = express.raw({
+    type: () => true,
+    limit: '2mb',
+    inflate: false,
+  });
   return async (req, res, next) => {
     const path = req.originalUrl.split('?')[0].replace(/\/$/, '');
+    if (req.method === 'POST' && path.startsWith('/api/admin/ai/')) {
+      const origin = config.appOrigin || req.protocol + '://' + req.get('host');
+      if (req.get('origin') !== origin) {
+        res.status(403).json({ error: 'Недопустимый источник запроса.' });
+        return;
+      }
+      if (
+        !(await adminAuthenticated(
+          new Request(origin + path, {
+            headers: { Cookie: req.get('cookie') || '' },
+          }),
+          { config, store, diagnostics, clientIp: req.ip || 'unknown' },
+        ))
+      ) {
+        res.status(401).json({ error: 'Нет доступа.' });
+        return;
+      }
+      if (path === '/api/admin/ai/image') {
+        aiImageBody(req, res, next);
+        return;
+      }
+      if (path === '/api/admin/ai/text') {
+        aiTextBody(req, res, next);
+        return;
+      }
+      if (
+        [
+          '/api/admin/ai/materials',
+          '/api/admin/ai/photo1',
+          '/api/admin/ai/photo2',
+        ].includes(path)
+      ) {
+        aiMaterialsBody(req, res, next);
+        return;
+      }
+    }
     const articleImage = path === '/api/admin/article-images';
     const isUpload =
       req.method === 'POST' &&

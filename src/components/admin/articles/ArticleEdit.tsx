@@ -3,6 +3,8 @@ import { useArticleForm } from './useArticleForm';
 import { articleRequest } from './api';
 import { storeArticlePreview } from './preview-storage';
 import ArticleFields from './ArticleFields';
+import ArticlePublication from './ArticlePublication';
+import { articleSaveLabel, scheduledDate } from '@/features/articles/schedule';
 
 export default function ArticleEdit({ id }: { id?: string }) {
   const editor = useArticleForm(id);
@@ -75,6 +77,18 @@ export default function ArticleEdit({ id }: { id?: string }) {
           </a>
         </aside>
       )}
+      {editor.record?.status === 'scheduled' && (
+        <aside className="article-scheduled-notice">
+          <strong>
+            Публикация запланирована на{' '}
+            {scheduledDate(editor.record.scheduledAt)}
+          </strong>
+          <p>
+            До этого времени статья доступна только в админке. Измените дату
+            ниже или отмените расписание.
+          </p>
+        </aside>
+      )}
       <div className="article-admin-workspace">
         <div>
           <ArticleFields
@@ -89,13 +103,35 @@ export default function ArticleEdit({ id }: { id?: string }) {
           className="article-admin-actions"
           aria-label="Действия со статьёй"
         >
-          <h2>Действия</h2>
+          <ArticlePublication
+            form={editor.form}
+            savedStatus={editor.record?.status}
+            disabled={editor.pending}
+            onChange={editor.change}
+          />
           <button type="button" disabled={editor.pending} onClick={preview}>
             Предпросмотр статьи
           </button>
-          <button type="button" disabled={editor.pending} onClick={editor.save}>
-            {editor.pending ? 'Сохранение…' : 'Сохранить'}
+          <button
+            type="button"
+            disabled={editor.pending}
+            onClick={() => editor.save()}
+          >
+            {editor.pending
+              ? 'Сохранение…'
+              : articleSaveLabel(editor.form.status, editor.record?.status)}
           </button>
+          {editor.record?.status === 'scheduled' && (
+            <button
+              type="button"
+              disabled={editor.pending}
+              onClick={() =>
+                editor.save({ status: 'draft', scheduledAt: null })
+              }
+            >
+              Отменить расписание
+            </button>
+          )}
           {editor.record?.status === 'published' && (
             <a
               href={'/blog/' + editor.record.slug + '/'}

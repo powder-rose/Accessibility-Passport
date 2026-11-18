@@ -14,6 +14,7 @@ import { configureAdmin } from './auth/service';
 import { Diagnostics } from './diagnostics';
 import { validateDomainConfiguration } from './origin';
 import { metrikaMarkup } from './metrika';
+import { startArticleScheduler } from './articles/scheduler';
 
 export async function createApplication(config: Config) {
   validateDomainConfiguration(config, getSiteContent());
@@ -203,11 +204,18 @@ export async function createApplication(config: Config) {
         );
   };
   app.use(handleError);
+  const stopArticleScheduler = startArticleScheduler(
+    store.articles,
+    (error) => {
+      diagnostics.failure('article_publication', error);
+    },
+  );
   return {
     app,
     store,
     diagnostics,
     async close() {
+      stopArticleScheduler();
       await vite?.close();
       store.close();
     },

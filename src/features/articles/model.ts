@@ -15,7 +15,8 @@ export const articleFormSchema = z.object({
     .trim()
     .max(80)
     .transform((value) => value.replace(/\s+/g, ' ')),
-  status: z.enum(['draft', 'published']),
+  status: z.enum(['draft', 'published', 'scheduled']),
+  scheduledAt: z.iso.datetime().nullable().default(null),
   seoTitle: z.string().trim().max(240),
   seoDescription: z.string().trim().max(500),
 });
@@ -41,6 +42,7 @@ export const emptyArticle = (): ArticleForm => ({
   imageAlt: '',
   category: '',
   status: 'draft',
+  scheduledAt: null,
   seoTitle: '',
   seoDescription: '',
 });

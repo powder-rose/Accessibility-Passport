@@ -123,7 +123,7 @@ Quality Gate проверяет форматирование Prettier, ESLint б
 
 Для автоматического форматирования используйте `npm run format`, для локальных исправлений ESLint — `npm run lint:fix`, затем просмотрите diff и повторите `npm run check`. Проверки без исправления доступны отдельно: `npm run format:check`, `npm run lint`, `npm run audit:check`, `npm run typecheck`.
 
-Для dependency audit нужен доступ к npm registry. Умеренные предупреждения отображаются, но не блокируют gate; текущие версии и оставшиеся ограничения описаны в [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md). Ошибка сети не считается успешным аудитом.
+Для dependency audit нужен доступ к npm registry. Умеренные предупреждения отображаются, но не блокируют gate. До 2 декабря 2026 года действует явно выводимое исключение для GHSA-fc5q-39xc-vjpf только в проверенных версиях dev-инструментов; остальные high/critical блокируют gate. Проверка запрещает использовать исключение для production-зависимости, другой версии или новой уязвимости. Обоснование и порядок удаления исключения описаны в [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md). Ошибка сети не считается успешным аудитом.
 
 Workflow `.github/workflows/quality-gate.yml` выполняет ту же проверку на Linux и Windows для pull request и push в `main`. Чтобы запретить merge при неудаче, назначьте оба задания Quality Gate обязательными в настройках защиты `main` после первого запуска workflow. Сам файл workflow защиту ветки не включает.
 

@@ -31,6 +31,13 @@ import {
 } from '../articles/ai-target';
 import type { TextResult } from './result';
 import {
+  combineThreePart,
+  continueThreePart,
+  loadThreePart,
+  saveThreePart,
+  type ThreePartRun,
+} from './three-part';
+import {
   chooseImagePrompt,
   defaultImagePrompt,
   nextImageScene,
@@ -165,6 +172,10 @@ export default function AIAssistant({
   const [textModel, setTextModel] = useState('gpt-6.1-terra');
   const [imageModel, setImageModel] = useState('gpt-image-2');
   const [busy, setBusy] = useState('');
+  const [threePart, setThreePart] = useState<ThreePartRun | null>(null);
+  const [threePartError, setThreePartError] = useState('');
+  const threePartScope =
+    typeof window === 'undefined' ? '' : window.location.pathname;
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [includeCurrent, setIncludeCurrent] = useState(false);
@@ -181,6 +192,15 @@ export default function AIAssistant({
   const [jobsLoading, setJobsLoading] = useState(true);
   const [historyError, setHistoryError] = useState(false);
   const [slot, setSlot] = useState<'cover' | 'inline'>('cover');
+  useEffect(() => {
+    try {
+      setThreePart(loadThreePart(localStorage, threePartScope));
+    } catch {
+      setThreePartError(
+        'Не удалось прочитать сохранённые блоки. Проверьте доступность хранилища браузера; новая генерация остановлена.',
+      );
+    }
+  }, [threePartScope]);
   useEffect(() => {
     const node = dialog.current;
     if (node && !node.open) node.showModal();
@@ -437,96 +457,223 @@ export default function AIAssistant({
       );
     });
   }
-  async function generateText() {
-    await run('text', async () => {
-      if (
-        result &&
-        (!resultApplied ||
-          appliedMetadata.length < (metadata?.category?.trim() ? 6 : 5)) &&
-        !window.confirm(
-          'Новая генерация заменит ещё не перенесённый результат. Запрос может быть платным. Продолжить?',
-        )
-      )
-        return;
-      await assertCurrentRevisions();
-      const materials = current.current;
-      if (
-        materials.chatEnabled &&
-        materials.chatContext.trim() &&
-        materials.chatOmittedParts > 0 &&
-        !window.confirm(
-          'В чате обнаружены вложения или другие нетекстовые материалы, которые не удалось прочитать. Добавьте необходимые документы отдельно. Продолжить с доступным текстом?',
-        )
-      )
-        return;
-      const partial = materials.documents.filter(
-        (document) => document.emptyPages > 0,
+  async function showThreePart(run: ThreePartRun) {
+    const normalized = combineThreePart(run);
+    setResult(normalized);
+    setMetadata(normalized.metadata);
+    const nextInline = Math.min(2, articleImageContext(articleContent).count);
+    setImageAlt(
+      slot === 'cover'
+        ? normalized.metadata.imageAlt
+        : normalized.metadata.inlineImageAlts[nextInline] || '',
+    );
+    setInlineAltIndex(nextInline);
+    setResultApplied(false);
+    setAppliedMetadata([]);
+    try {
+      const fill = onAutofill(normalized);
+      setResultApplied(fill.textApplied);
+      setAppliedMetadata(fill.appliedMetadata);
+      setNotice(
+        [
+          fill.applied.length
+            ? `Заполнено: ${fill.applied.join(', ')}.`
+            : 'Пустых полей для заполнения нет.',
+          fill.preserved.length
+            ? `Сохранено без изменений: ${fill.preserved.join(', ')}.`
+            : '',
+          fill.review.length ? `Проверьте: ${fill.review.join('; ')}.` : '',
+          'Проверьте текст, нормы, факты и SEO перед сохранением. Стоимость смотрите в кабинете шлюза.',
+        ]
+          .filter(Boolean)
+          .join(' '),
       );
-      if (
-        partial.length &&
-        !window.confirm(
-          `В этих документах есть страницы без текста: ${partial.map((document) => document.name).join(', ')}. Они не попадут в запрос. Продолжить?`,
+    } catch {
+      setNotice(
+        'Черновик получен, но автоматически заполнить поля не удалось. Результат сохранён в помощнике — проверьте и перенесите его вручную.',
+      );
+    }
+  }
+
+  async function withTextLock(operation: () => Promise<void>) {
+    if (!navigator.locks)
+      throw new Error(
+        'Этот браузер не поддерживает защиту от параллельных запросов. Откройте редактор в актуальном Chrome.',
+      );
+    await navigator.locks.request(
+      'article-ai:three-part',
+      { ifAvailable: true },
+      async (lock) => {
+        if (!lock)
+          throw new Error(
+            'Генерация уже работает в другой вкладке. Дождитесь её завершения.',
+          );
+        await operation();
+      },
+    );
+  }
+
+  async function sendThreeParts(
+    saved: ThreePartRun,
+    allowUnconfirmed: boolean,
+  ) {
+    const completed = await continueThreePart(
+      saved,
+      localStorage,
+      async (prompt) => {
+        const response = await articleRequest<TextResult>(
+          '/api/admin/ai/text',
+          articleJson('POST', {
+            prompt,
+            system: GENERATION_SYSTEM,
+            structured: true,
+          }),
+          { timeoutMs: 240_000 },
+        );
+        return {
+          ...response,
+          metadata: {
+            ...response.metadata,
+            category: response.metadata?.category || '',
+          },
+        };
+      },
+      setThreePart,
+      allowUnconfirmed,
+    );
+    await showThreePart(completed);
+  }
+
+  async function generateText(useEditorAsFirst = false) {
+    await run('text', async () =>
+      withTextLock(async () => {
+        if (threePartError) throw new Error(threePartError);
+        const previous = loadThreePart(localStorage, threePartScope);
+        if (
+          previous &&
+          !window.confirm(
+            'В браузере уже сохранены блоки предыдущей статьи. Новая генерация заменит их. Если они нужны, сначала скачайте или восстановите их. Продолжить?',
+          )
         )
-      )
-        return;
-      const prompt = buildPrompt(materials, articleContent, includeCurrent);
-      const response = await articleRequest<TextResult>(
-        '/api/admin/ai/text',
-        articleJson('POST', {
+          return;
+        if (
+          result &&
+          (!resultApplied ||
+            appliedMetadata.length < (metadata?.category?.trim() ? 6 : 5)) &&
+          !window.confirm(
+            'Новая генерация заменит ещё не перенесённый результат. Продолжить?',
+          )
+        )
+          return;
+        await assertCurrentRevisions();
+        const materials = current.current;
+        if (
+          materials.chatEnabled &&
+          materials.chatContext.trim() &&
+          materials.chatOmittedParts > 0 &&
+          !window.confirm(
+            'В чате есть вложения или другие нетекстовые материалы, которые не удалось прочитать. Продолжить с доступным текстом?',
+          )
+        )
+          return;
+        const partial = materials.documents.filter(
+          (document) => document.emptyPages > 0,
+        );
+        if (
+          partial.length &&
+          !window.confirm(
+            `В этих документах есть страницы без текста: ${partial.map((document) => document.name).join(', ')}. Они не попадут в запрос. Продолжить?`,
+          )
+        )
+          return;
+        const prompt = buildPrompt(materials, articleContent, includeCurrent);
+        if (
+          useEditorAsFirst &&
+          (!articleContent.trim() || articleContent.length > 300000)
+        )
+          throw new Error('В редакторе нет подходящего первого блока.');
+        if (
+          useEditorAsFirst &&
+          !window.confirm(
+            'Текущий текст редактора будет принят за первый блок выбранного плана. Сначала проверьте, что он относится к этому плану. Будут созданы блоки 2 и 3. Продолжить?',
+          )
+        )
+          return;
+        const first: TextResult[] = useEditorAsFirst
+          ? [
+              {
+                text: articleContent,
+                safeHtml: articleContent,
+                metadata: {
+                  title: articleTitle,
+                  slug: '',
+                  category: '',
+                  seoTitle: '',
+                  seoDescription: '',
+                  imageAlt: '',
+                  clusterTopic: '',
+                  inlineImageAlts: ['', '', ''],
+                },
+              },
+            ]
+          : [];
+        const saved: ThreePartRun = {
+          version: 1,
+          id: crypto.randomUUID(),
+          scope: threePartScope,
           prompt,
-          system: GENERATION_SYSTEM,
-          structured: true,
-        }),
-        { timeoutMs: 240_000 },
-      );
-      if (
-        !response.text?.trim() ||
-        !response.safeHtml?.trim() ||
-        !response.metadata
-      )
-        throw new Error('Сервис не вернул пригодный текст.');
-      const normalized = {
-        ...response,
-        metadata: {
-          ...response.metadata,
-          category: response.metadata.category || '',
-        },
-      };
-      setResult(normalized);
-      setMetadata(normalized.metadata);
-      const nextInline = Math.min(2, articleImageContext(articleContent).count);
-      setImageAlt(
-        slot === 'cover'
-          ? response.metadata.imageAlt
-          : response.metadata.inlineImageAlts[nextInline] || '',
-      );
-      setInlineAltIndex(nextInline);
-      setResultApplied(false);
-      setAppliedMetadata([]);
-      try {
-        const fill = onAutofill(normalized);
-        setResultApplied(fill.textApplied);
-        setAppliedMetadata(fill.appliedMetadata);
-        setNotice(
-          [
-            fill.applied.length
-              ? `Заполнено: ${fill.applied.join(', ')}.`
-              : 'Пустых полей для заполнения нет.',
-            fill.preserved.length
-              ? `Сохранено без изменений: ${fill.preserved.join(', ')}.`
-              : '',
-            fill.review.length ? `Проверьте: ${fill.review.join('; ')}.` : '',
-            'Проверьте текст, нормы, факты и SEO перед сохранением. Стоимость смотрите в кабинете шлюза.',
-          ]
-            .filter(Boolean)
-            .join(' '),
-        );
-      } catch {
-        setNotice(
-          'Черновик получен, но автоматически заполнить поля не удалось. Результат сохранён в помощнике — проверьте и перенесите его вручную.',
-        );
-      }
-    });
+          parts: first,
+          seeded: useEditorAsFirst,
+          state: 'ready',
+        };
+        saveThreePart(localStorage, saved);
+        setThreePart(saved);
+        await sendThreeParts(saved, false);
+      }),
+    );
+  }
+
+  async function resumeText() {
+    await run('text', async () =>
+      withTextLock(async () => {
+        const saved = loadThreePart(localStorage, threePartScope);
+        if (!saved) throw new Error('Сохранённые блоки не найдены.');
+        if (saved.state === 'complete') {
+          if (
+            result &&
+            !window.confirm(
+              'Заменить результат в окне помощника сохранённой статьёй?',
+            )
+          )
+            return;
+          await showThreePart(saved);
+          return;
+        }
+        const retry = saved.state === 'sending';
+        if (
+          retry &&
+          !window.confirm(
+            `Ответ на запрос блока ${saved.parts.length + 1} не был получен. Шлюз мог обработать и списать этот запрос. Повторный запрос может быть платным. Продолжить?`,
+          )
+        )
+          return;
+        await sendThreeParts(saved, retry);
+      }),
+    );
+  }
+
+  function downloadBlocks() {
+    if (!threePart?.parts.length) return;
+    const blob = new Blob(
+      [threePart.parts.map((part) => part.safeHtml).join('\n')],
+      { type: 'text/html;charset=utf-8' },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'article-blocks.html';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   async function importChat() {
     await run('chat', async () => {
@@ -963,11 +1110,53 @@ export default function AIAssistant({
         </label>
         <button
           type="button"
-          disabled={blocked || !connection?.configured}
+          disabled={blocked || !connection?.configured || !!threePartError}
           onClick={() => void generateText()}
         >
           {busy === 'text' ? 'Генерируем…' : 'Сгенерировать статью'}
         </button>
+        <p className="article-ai-note">
+          Статья создаётся последовательно в трёх запросах к шлюзу. Каждый
+          запрос может расходовать токены. Готовые блоки сохраняются в этом
+          браузере.
+        </p>
+        {articleContent.trim() && (
+          <button
+            type="button"
+            disabled={blocked || !connection?.configured || !!threePartError}
+            onClick={() => void generateText(true)}
+          >
+            Использовать текст редактора как первый блок
+          </button>
+        )}
+        {threePartError && <p role="alert">{threePartError}</p>}
+        {threePart && (
+          <div className="article-ai-note" aria-live="polite">
+            <p>
+              Готово блоков: {threePart.parts.length} из 3.
+              {busy === 'text' &&
+                threePart.state === 'sending' &&
+                ` Создаётся блок ${threePart.parts.length + 1}.`}
+              {busy !== 'text' &&
+                threePart.state === 'sending' &&
+                ' Результат последнего запроса неизвестен; проверьте расходы перед повтором.'}
+            </p>
+            <button
+              type="button"
+              disabled={blocked || !connection?.configured || !!threePartError}
+              onClick={() => void resumeText()}
+            >
+              {threePart.state === 'complete'
+                ? 'Восстановить готовую статью'
+                : 'Продолжить создание статьи'}
+            </button>{' '}
+            {threePart.parts.length > 0 && (
+              <button type="button" onClick={downloadBlocks}>
+                Скачать готовые блоки
+              </button>
+            )}
+          </div>
+        )}
         {result && (
           <>
             {metadata &&

@@ -227,7 +227,7 @@ export async function callGateway(
     settings.baseUrl + path,
     headers,
     body,
-    kind === 'image' ? 900000 : 90000,
+    kind === 'image' ? 900000 : 210000,
   );
   if (reply.status < 200 || reply.status >= 300)
     throw new Error(

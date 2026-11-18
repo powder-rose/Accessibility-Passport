@@ -48,15 +48,16 @@ function form(overrides: Partial<ArticleForm> = {}): ArticleForm {
     ...overrides,
   };
 }
-function fixture(t: TestContext) {
+function fixture(t: TestContext, automaticCleanup = true) {
   const directory = mkdtempSync(join(tmpdir(), 'osi-schedule-'));
   const filename = join(directory, 'site.sqlite');
   const store = new Store(filename);
-  t.after(() => {
+  const close = () => {
     store.close();
     rmSync(directory, { recursive: true, force: true });
-  });
-  return { store, filename, directory, articles: store.articles };
+  };
+  if (automaticCleanup) t.after(close);
+  return { store, filename, directory, articles: store.articles, close };
 }
 
 test('scheduling requires complete publication data, a future timestamp and an existing image', (t) => {
@@ -287,47 +288,74 @@ test('Moscow input is independent of browser timezone and rejects impossible dat
   assert.match(html, /2035-01-02T12:00/);
 });
 
-async function httpFixture(t: TestContext, filename: string) {
+async function httpFixture(t: TestContext) {
+  const f = fixture(t, false);
+  const resources: {
+    application?: Awaited<ReturnType<typeof createApplication>>;
+    server?: Server;
+  } = {};
+  t.after(async () => {
+    try {
+      if (resources.server) {
+        const listener = resources.server;
+        await new Promise<void>((resolve, reject) => {
+          listener.close((error) => (error ? reject(error) : resolve()));
+          listener.closeAllConnections();
+        });
+      }
+    } finally {
+      try {
+        await resources.application?.close();
+      } finally {
+        f.close();
+      }
+    }
+  });
   const password = 'synthetic-schedule-api-password';
-  const application = await createApplication({
+  const application = (resources.application = await createApplication({
     production: true,
     host: '127.0.0.1',
     port: 0,
-    databasePath: filename,
+    databasePath: f.filename,
     trustProxy: 0,
     adminPasswordHash: createHash('sha256').update(password).digest('hex'),
     adminSessionSecret: 'synthetic-schedule-session-secret-at-least-32-chars',
-  });
-  const server = await new Promise<Server>((resolve) => {
-    const s = application.app.listen(0, '127.0.0.1', () => resolve(s));
-  });
-  t.after(async () => {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    await application.close();
-  });
+  }));
+  const app = application.app;
+  const server = (resources.server = await new Promise<Server>(
+    (resolve, reject) => {
+      const s = app.listen(0, '127.0.0.1', () => resolve(s));
+      s.once('error', reject);
+    },
+  ));
   const address = server.address();
   assert.ok(address && typeof address !== 'string');
   const origin = 'http://127.0.0.1:' + address.port;
-  const login = await fetch(origin + '/api/admin/login', {
+  const request = (path: string, options: RequestInit = {}) =>
+    fetch(origin + path, {
+      ...options,
+      signal: AbortSignal.timeout(8000),
+    });
+  const login = await request('/api/admin/login', {
     method: 'POST',
     headers: { Origin: origin, 'Content-Type': 'application/json' },
     body: JSON.stringify({ password }),
   });
   assert.equal(login.status, 200);
   const cookie = login.headers.get('set-cookie')!.split(';')[0];
-  return { application, origin, cookie };
+  return { ...f, application, origin, cookie, request };
 }
 
 test('authenticated schedule API keeps future articles, SEO and images private until the worker publishes', async (t) => {
-  const f = fixture(t);
-  const { application, origin, cookie } = await httpFixture(t, f.filename);
+  const f = await httpFixture(t);
+  const { application, origin, cookie, request } = f;
   const image = f.articles.addImage(Buffer.from('synthetic-image'), 1, 1);
   const input = {
     requestId: randomUUID(),
     form: form({ image: image.url, imageAlt: 'Проверка' }),
   };
   const write = (headers: Record<string, string>) =>
-    fetch(origin + '/api/admin/articles', {
+    request('/api/admin/articles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(input),
@@ -341,30 +369,24 @@ test('authenticated schedule API keeps future articles, SEO and images private u
   assert.equal(saved.status, 200);
   const { article } = await saved.json();
   assert.equal(article.status, 'scheduled');
-  assert.equal(
-    (await fetch(origin + '/blog/' + article.slug + '/')).status,
-    404,
-  );
-  assert.equal((await fetch(origin + image.url)).status, 404);
+  assert.equal((await request('/blog/' + article.slug + '/')).status, 404);
+  assert.equal((await request(image.url)).status, 404);
   assert.doesNotMatch(
-    await (await fetch(origin + '/sitemap.xml')).text(),
+    await (await request('/sitemap.xml')).text(),
     /scheduled-test/,
   );
   assert.doesNotMatch(
-    await (await fetch(origin + '/blog/')).text(),
+    await (await request('/blog/')).text(),
     /Публикация по расписанию/,
   );
   assert.equal(application.store.articles.publishDue(new Date(due)), 1);
-  const page = await fetch(origin + '/blog/' + article.slug + '/');
+  const page = await request('/blog/' + article.slug + '/');
   assert.equal(page.status, 200);
   const html = await page.text();
   assert.match(html, /<h1>Публикация по расписанию<\/h1>/);
   assert.match(html, /BlogPosting/);
-  assert.match(
-    await (await fetch(origin + '/sitemap.xml')).text(),
-    /scheduled-test/,
-  );
-  assert.equal((await fetch(origin + image.url)).status, 200);
+  assert.match(await (await request('/sitemap.xml')).text(), /scheduled-test/);
+  assert.equal((await request(image.url)).status, 200);
 });
 
 test('application startup publishes overdue persisted articles without an admin session or request', async (t) => {

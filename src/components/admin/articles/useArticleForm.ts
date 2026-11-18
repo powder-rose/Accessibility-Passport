@@ -8,6 +8,7 @@ import {
 import { createRequestId } from '@/lib/request-id';
 import { articleRequest, saveArticle } from './api';
 import { newArticleDraftKey as key } from './local-draft';
+import { scheduleError } from '@/features/articles/schedule';
 
 function initialDraft(id?: string) {
   if (id || typeof window === 'undefined') return null;
@@ -116,26 +117,39 @@ export function useArticleForm(id?: string) {
     field: K,
     value: ArticleForm[K],
   ) {
+    setError('');
     unsaved.current = true;
     setDirty(true);
-    currentForm.current = { ...currentForm.current, [field]: value };
+    currentForm.current = {
+      ...currentForm.current,
+      [field]: value,
+      ...(field === 'status' && value !== 'scheduled'
+        ? { scheduledAt: null }
+        : {}),
+    };
     setForm(currentForm.current);
   }
-  async function save() {
+  async function save(overrides: Partial<ArticleForm> = {}) {
     if (locked.current) return;
+    const next = { ...currentForm.current, ...overrides };
+    const validation = scheduleError(next);
+    if (validation) {
+      setError(validation);
+      return;
+    }
     locked.current = true;
     setPending(true);
     setError('');
     try {
-      const result = await saveArticle(form, requestId.current, record);
+      const result = await saveArticle(next, requestId.current, record);
       saved.current = true;
       unsaved.current = false;
       setDirty(false);
       if (!id) localStorage.removeItem(key);
       setRecord(result.article);
-      const next = articleFormSchema.parse(result.article);
-      currentForm.current = next;
-      setForm(next);
+      const savedForm = articleFormSchema.parse(result.article);
+      currentForm.current = savedForm;
+      setForm(savedForm);
       location.assign('/admin/articles/');
     } catch (error) {
       setError(

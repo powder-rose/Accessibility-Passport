@@ -17,7 +17,9 @@ export function parseArticleQuery(url: URL, admin = false): ArticleQuery {
     !/^[1-9]\d{0,5}$/.test(page) ||
     category.length > 80 ||
     search.length > 100 ||
-    !['all', 'draft', 'published'].includes(status)
+    !['all', 'draft', 'published', ...(admin ? ['scheduled'] : [])].includes(
+      status,
+    )
   )
     throw new ArticleQueryError('Некорректные параметры списка статей.');
   return {

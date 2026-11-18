@@ -24,7 +24,7 @@
     "lint:fix": "eslint . --fix --max-warnings 0",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "audit:check": "npm audit --audit-level=high --fetch-retries=1 --fetch-timeout=20000"
+    "audit:check": "node scripts/audit-dependencies.mjs"
   },
   "dependencies": {
     "@tiptap/extension-image": "3.32.2",

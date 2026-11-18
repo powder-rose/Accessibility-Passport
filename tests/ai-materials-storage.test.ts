@@ -36,7 +36,9 @@ test('schema five migrates without changing data and supports independent CAS ac
   );
   initial.close();
   const old = new DatabaseSync(path);
-  old.exec('DROP TABLE ai_materials; PRAGMA user_version=5;');
+  old.exec(
+    'DROP INDEX articles_schedule_idx; ALTER TABLE articles DROP COLUMN scheduled_at; DROP TABLE ai_materials; PRAGMA user_version=5;',
+  );
   old.close();
   const first = new Store(path);
   const second = new Store(path);
@@ -112,7 +114,9 @@ test('schema six snapshots restore and migrate to the compatibility marker witho
   const image = initial.articles.addImage(photo, 1, 1);
   initial.close();
   const old = new DatabaseSync(path);
-  old.exec('PRAGMA user_version=6');
+  old.exec(
+    'DROP INDEX articles_schedule_idx; ALTER TABLE articles DROP COLUMN scheduled_at; PRAGMA user_version=6',
+  );
   old.close();
   const snapshot = join(dir, 'old-snapshot');
   assert.equal((await createBackup(path, snapshot)).schemaVersion, 6);
@@ -121,7 +125,7 @@ test('schema six snapshots restore and migrate to the compatibility marker witho
   const migrated = new Store(restored.databasePath);
   const version = new DatabaseSync(restored.databasePath, { readOnly: true });
   try {
-    assert.equal(version.prepare('PRAGMA user_version').get()?.user_version, 7);
+    assert.equal(version.prepare('PRAGMA user_version').get()?.user_version, 8);
     assert.equal(migrated.isAvailable(), true);
     assert.equal(migrated.findLeadHash('existing'), 'old-hash');
     assert.equal(
@@ -154,7 +158,7 @@ test('backup restores materials and photos; schema-five snapshots still verify a
   store.aiMaterials.put('photo2', photo, null, 'image/png');
   const snapshot = join(dir, 'snapshot');
   const result = await createBackup(path, snapshot);
-  assert.equal(result.schemaVersion, 7);
+  assert.equal(result.schemaVersion, 8);
   assert.equal(result.counts.ai_materials, 2);
   assert.deepEqual(await verifyBackup(snapshot), result);
   const restored = await restoreBackup(snapshot, join(dir, 'restored'));
@@ -174,7 +178,9 @@ test('backup restores materials and photos; schema-five snapshots still verify a
   const old = new Store(oldPath);
   old.close();
   const database = new DatabaseSync(oldPath);
-  database.exec('DROP TABLE ai_materials; PRAGMA user_version=5;');
+  database.exec(
+    'DROP INDEX articles_schedule_idx; ALTER TABLE articles DROP COLUMN scheduled_at; DROP TABLE ai_materials; PRAGMA user_version=5;',
+  );
   database.close();
   const oldSnapshot = join(dir, 'old-snapshot');
   assert.equal((await createBackup(oldPath, oldSnapshot)).schemaVersion, 5);

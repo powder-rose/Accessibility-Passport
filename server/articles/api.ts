@@ -105,6 +105,7 @@ const preview: ApiHandler = (request, context) =>
     const form = context.store.articles.prepare({
       ...parsed.data,
       status: 'draft',
+      scheduledAt: null,
     });
     return Response.json({
       article: {

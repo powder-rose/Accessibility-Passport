@@ -11,6 +11,8 @@ import type { AiTarget } from './ai-target';
 import type { TextResult } from '../ai/result';
 import type { AssistantMetadata } from '../ai/metadata';
 import { planAiAutofill } from './ai-autofill';
+import ArticlePublication from './ArticlePublication';
+import { articleSaveLabel, scheduledDate } from '@/features/articles/schedule';
 
 async function prepareAiCover(file: File): Promise<File> {
   const url = URL.createObjectURL(file);
@@ -271,6 +273,18 @@ export default function ArticleEdit({ id }: { id?: string }) {
           </a>
         </aside>
       )}
+      {editor.record?.status === 'scheduled' && (
+        <aside className="article-scheduled-notice">
+          <strong>
+            Публикация запланирована на{' '}
+            {scheduledDate(editor.record.scheduledAt)}
+          </strong>
+          <p>
+            До этого времени статья доступна только в админке. Измените дату
+            ниже или отмените расписание.
+          </p>
+        </aside>
+      )}
       <div className="article-admin-workspace">
         <div>
           <ArticleFields
@@ -286,7 +300,12 @@ export default function ArticleEdit({ id }: { id?: string }) {
           className="article-admin-actions"
           aria-label="Действия со статьёй"
         >
-          <h2>Действия</h2>
+          <ArticlePublication
+            form={editor.form}
+            savedStatus={editor.record?.status}
+            disabled={editor.pending || aiApplying}
+            onChange={editor.change}
+          />
           <button
             type="button"
             disabled={editor.pending || aiApplying}
@@ -304,10 +323,23 @@ export default function ArticleEdit({ id }: { id?: string }) {
           <button
             type="button"
             disabled={editor.pending || aiApplying}
-            onClick={editor.save}
+            onClick={() => editor.save()}
           >
-            {editor.pending ? 'Сохранение…' : 'Сохранить'}
+            {editor.pending
+              ? 'Сохранение…'
+              : articleSaveLabel(editor.form.status, editor.record?.status)}
           </button>
+          {editor.record?.status === 'scheduled' && (
+            <button
+              type="button"
+              disabled={editor.pending || aiApplying}
+              onClick={() =>
+                editor.save({ status: 'draft', scheduledAt: null })
+              }
+            >
+              Отменить расписание
+            </button>
+          )}
           {editor.record?.status === 'published' && (
             <a
               href={'/blog/' + editor.record.slug + '/'}

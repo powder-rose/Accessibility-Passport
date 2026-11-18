@@ -119,19 +119,6 @@ export default function ArticleFields({
             <option value={category} key={category} />
           ))}
         </datalist>
-        <label>
-          Статус
-          <select
-            value={form.status}
-            disabled={disabled}
-            onChange={(event) =>
-              onChange('status', event.target.value as ArticleForm['status'])
-            }
-          >
-            <option value="draft">Черновик</option>
-            <option value="published">Опубликовано</option>
-          </select>
-        </label>
       </section>
       <section className="article-admin-card">
         <h2>SEO</h2>

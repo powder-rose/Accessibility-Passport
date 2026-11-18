@@ -222,7 +222,11 @@ test('diagnostics counts failed log writes without throwing and isolates process
   );
   diagnostics.failure('http_request', new Error(privateMarker));
   assert.deepEqual(diagnostics.snapshot(), {
-    operationFailuresTotal: { lead_submission: 2, http_request: 1 },
+    operationFailuresTotal: {
+      lead_submission: 2,
+      http_request: 1,
+      article_publication: 0,
+    },
     codeFailuresTotal: {
       'lead_submission:ENOSPC': 2,
       'http_request:UNKNOWN': 1,
@@ -232,6 +236,7 @@ test('diagnostics counts failed log writes without throwing and isolates process
   assert.deepEqual(new Diagnostics().snapshot().operationFailuresTotal, {
     lead_submission: 0,
     http_request: 0,
+    article_publication: 0,
   });
 });
 

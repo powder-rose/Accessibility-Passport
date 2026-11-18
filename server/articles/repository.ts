@@ -28,6 +28,7 @@ interface Row {
   created_at: string;
   updated_at: string;
   published_at: string | null;
+  scheduled_at: string | null;
   deleted_at: string | null;
   request_hash: string;
 }
@@ -43,7 +44,8 @@ export class ArticleRepository {
       content: sanitizeArticleContent(form.content),
       id: row.id,
       slug: row.slug,
-      status: row.status,
+      status: row.scheduled_at ? 'scheduled' : row.status,
+      scheduledAt: row.scheduled_at,
       category: row.category,
       revision: row.revision,
       createdAt: row.created_at,
@@ -89,9 +91,18 @@ export class ArticleRepository {
     return slug;
   }
   prepare(input: ArticleForm) {
-    const form = { ...input, content: sanitizeArticleContent(input.content) };
+    const form = {
+      ...input,
+      scheduledAt: input.status === 'scheduled' ? input.scheduledAt : null,
+      content: sanitizeArticleContent(input.content),
+    };
+    if (form.status === 'scheduled') {
+      if (!form.scheduledAt || !Number.isFinite(Date.parse(form.scheduledAt)))
+        throw new ArticleError('Выберите дату и время публикации.');
+      form.scheduledAt = new Date(form.scheduledAt).toISOString();
+    }
     if (
-      form.status === 'published' &&
+      form.status !== 'draft' &&
       (!form.title ||
         !articleText(form.content) ||
         !form.seoTitle ||
@@ -100,7 +111,7 @@ export class ArticleRepository {
       throw new ArticleError(
         'Для публикации заполните заголовок, текст, SEO Title и SEO Description.',
       );
-    if (form.status === 'published' && form.image && !form.imageAlt)
+    if (form.status !== 'draft' && form.image && !form.imageAlt)
       throw new ArticleError('Добавьте Alt главного изображения.');
     for (const id of imageReferences(form.content, form.image))
       if (!this.db.prepare('SELECT 1 FROM article_images WHERE id=?').get(id))
@@ -137,7 +148,18 @@ export class ArticleRepository {
           .prepare('SELECT * FROM articles WHERE request_id=?')
           .get(requestId) as Row | undefined;
         if (retry) {
-          if (retry.request_hash !== hash || retry.deleted_at)
+          const { scheduledAt: _scheduledAt, ...legacyForm } = form;
+          const legacyHash =
+            form.scheduledAt === null
+              ? createHash('sha256')
+                  .update(JSON.stringify(legacyForm))
+                  .digest('hex')
+              : '';
+          if (
+            (retry.request_hash !== hash &&
+              retry.request_hash !== legacyHash) ||
+            retry.deleted_at
+          )
             throw new ArticleError(
               'Данные запроса изменились. Обновите список статей.',
               409,
@@ -152,6 +174,14 @@ export class ArticleRepository {
           'Статья изменена в другой вкладке. Ваши поля сохранены; откройте актуальную версию отдельно и перенесите изменения.',
           409,
         );
+      if (form.status === 'scheduled') {
+        if (previous?.status === 'published')
+          throw new ArticleError(
+            'Статья уже опубликована. Сначала сохраните её как черновик, чтобы назначить новую публикацию.',
+          );
+        if (Date.parse(form.scheduledAt!) <= Date.now())
+          throw new ArticleError('Выберите время публикации в будущем.');
+      }
       const articleId = id || randomUUID();
       const slug =
         previous && form.slug === previous.slug
@@ -163,36 +193,39 @@ export class ArticleRepository {
       const now = new Date().toISOString();
       const publishedAt =
         previous?.publishedAt || (form.status === 'published' ? now : null);
+      const status = form.status === 'published' ? 'published' : 'draft';
       if (previous)
         this.db
           .prepare(
-            'UPDATE articles SET slug=?,status=?,category=?,payload=?,revision=revision+1,updated_at=?,published_at=? WHERE id=?',
+            'UPDATE articles SET slug=?,status=?,category=?,payload=?,revision=revision+1,updated_at=?,published_at=?,scheduled_at=? WHERE id=?',
           )
           .run(
             slug,
-            form.status,
+            status,
             form.category,
             JSON.stringify({ ...form, slug }),
             now,
             publishedAt,
+            form.scheduledAt,
             articleId,
           );
       else
         this.db
           .prepare(
-            'INSERT INTO articles(id,request_id,request_hash,slug,status,category,payload,revision,created_at,updated_at,published_at) VALUES (?,?,?,?,?,?,?,1,?,?,?)',
+            'INSERT INTO articles(id,request_id,request_hash,slug,status,category,payload,revision,created_at,updated_at,published_at,scheduled_at) VALUES (?,?,?,?,?,?,?,1,?,?,?,?)',
           )
           .run(
             articleId,
             requestId!,
             hash,
             slug,
-            form.status,
+            status,
             form.category,
             JSON.stringify({ ...form, slug }),
             now,
             now,
             publishedAt,
+            form.scheduledAt,
           );
       this.db
         .prepare(
@@ -209,11 +242,33 @@ export class ArticleRepository {
     if (!article) throw new ArticleError('Статья не найдена.', 404);
     const result = this.db
       .prepare(
-        'UPDATE articles SET deleted_at=?,revision=revision+1 WHERE id=? AND revision=? AND deleted_at IS NULL',
+        'UPDATE articles SET deleted_at=?,scheduled_at=NULL,revision=revision+1 WHERE id=? AND revision=? AND deleted_at IS NULL',
       )
       .run(new Date().toISOString(), id, revision);
     if (!result.changes)
       throw new ArticleError('Статья уже изменена. Обновите список.', 409);
+  }
+  publishDue(now = new Date()) {
+    const timestamp = now.toISOString();
+    return inImmediateTransaction(
+      this.db,
+      () =>
+        this.db
+          .prepare(
+            `
+        UPDATE articles SET status='published',
+          published_at=COALESCE(published_at,scheduled_at),scheduled_at=NULL,
+          updated_at=?,revision=revision+1,
+          payload=json_set(payload,'$.status','published','$.scheduledAt',NULL)
+        WHERE id IN (
+          SELECT id FROM articles WHERE status='draft' AND deleted_at IS NULL
+            AND scheduled_at IS NOT NULL AND scheduled_at<=?
+          ORDER BY scheduled_at,id LIMIT 100
+        )
+      `,
+          )
+          .run(timestamp, timestamp).changes,
+    );
   }
   addImage(bytes: Buffer, width: number, height: number, seoName?: string) {
     return inImmediateTransaction(this.db, () => {

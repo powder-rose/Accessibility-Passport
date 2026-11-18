@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-type Operation = 'lead_submission' | 'http_request';
+type Operation = 'lead_submission' | 'http_request' | 'article_publication';
 export interface FailureEvent {
   timestamp: string;
   level: 'error';
@@ -60,6 +60,7 @@ export class Diagnostics {
   private readonly operations: Record<Operation, number> = {
     lead_submission: 0,
     http_request: 0,
+    article_publication: 0,
   };
   private readonly codes = new Map<string, number>();
   private logWriteFailuresTotal = 0;

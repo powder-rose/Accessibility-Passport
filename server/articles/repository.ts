@@ -82,13 +82,30 @@ export class ArticleRepository {
     const base = articleSlug(value) || 'article';
     let slug = base;
     let index = 2;
-    while (
-      this.db
-        .prepare('SELECT 1 FROM article_slugs WHERE slug=? AND article_id<>?')
-        .get(slug, exclude || '')
-    )
+    const owner = this.db.prepare(`
+      SELECT a.id, a.deleted_at, a.published_at
+      FROM article_slugs s JOIN articles a ON a.id=s.article_id
+      WHERE s.slug=? AND a.id<>?
+    `);
+    for (;;) {
+      const existing = owner.get(slug, exclude || '') as
+        | { id: string; deleted_at: string | null; published_at: string | null }
+        | undefined;
+      if (!existing) return slug;
+      if (existing.deleted_at && !existing.published_at) {
+        // Deleted, never-published drafts have no public URL to protect.
+        // Keep their archived content, but free the requested address in both
+        // unique columns. The internal marker cannot be a valid public slug.
+        this.db
+          .prepare('UPDATE articles SET slug=? WHERE id=? AND slug=?')
+          .run('deleted:' + existing.id, existing.id, slug);
+        this.db
+          .prepare('DELETE FROM article_slugs WHERE slug=? AND article_id=?')
+          .run(slug, existing.id);
+        return slug;
+      }
       slug = base + '-' + index++;
-    return slug;
+    }
   }
   prepare(input: ArticleForm) {
     const form = {

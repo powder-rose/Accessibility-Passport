@@ -526,6 +526,81 @@ test('unpublishing closes article and image access; deletion removes public list
   });
   assert.equal(collision.status, 200);
   assert.equal((await collision.json()).article.slug, article.slug + '-2');
+  const historicalCollision = await json('/api/admin/articles', {
+    requestId: randomUUID(),
+    form: form({ slug: 'obnovlennaya-statya' }),
+  });
+  assert.equal(historicalCollision.status, 200);
+  assert.equal(
+    (await historicalCollision.json()).article.slug,
+    'obnovlennaya-statya-2',
+  );
+});
+
+test('deleted never-published drafts release their current and historical addresses on demand', async () => {
+  async function create(slug: string): Promise<ArticleRecord> {
+    const response = await json('/api/admin/articles', {
+      requestId: randomUUID(),
+      form: form({ slug }),
+    });
+    assert.equal(response.status, 200, await response.clone().text());
+    return (await response.json()).article;
+  }
+  async function edit(
+    record: ArticleRecord,
+    overrides: Partial<ArticleForm>,
+  ): Promise<ArticleRecord> {
+    const response = await json(
+      '/api/admin/articles/' + record.id,
+      { form: { ...record, ...overrides }, revision: record.revision },
+      'PUT',
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    return (await response.json()).article;
+  }
+
+  const original = await create('reusable-draft-alias');
+  const renamed = await edit(original, { slug: 'reusable-draft-current' });
+  const collision = await create(renamed.slug);
+  assert.equal(collision.slug, renamed.slug + '-2');
+  const aliasCollision = await create(original.slug);
+  assert.equal(aliasCollision.slug, original.slug + '-2');
+
+  const removed = await request(
+    '/api/admin/articles/' + renamed.id + '?revision=' + renamed.revision,
+    { method: 'DELETE', headers: { Cookie: cookie, Origin: origin } },
+  );
+  assert.equal(removed.status, 200);
+
+  // Reproduce a draft already carrying the numeric suffix, then reclaim its
+  // original address without touching the article's content or publishing it.
+  const restored = await edit(collision, { slug: renamed.slug });
+  assert.equal(restored.slug, renamed.slug);
+  assert.equal(restored.status, 'draft');
+  assert.equal(restored.content, collision.content);
+  assert.equal(
+    await create(original.slug).then((entry) => entry.slug),
+    original.slug,
+  );
+  assert.equal(application.store.articles.get(renamed.id), undefined);
+
+  // The current draft still owns its previous (suffixed) URL, which becomes
+  // a direct redirect when it is published.
+  const published = await edit(restored, {
+    status: 'published',
+    seoTitle: 'Title',
+    seoDescription: 'Description',
+  });
+  assert.equal((await request('/blog/' + published.slug + '/')).status, 200);
+  const redirect = await request('/blog/' + collision.slug + '/', {
+    redirect: 'manual',
+  });
+  assert.equal(redirect.status, 301);
+  assert.equal(
+    redirect.headers.get('location'),
+    '/blog/' + published.slug + '/',
+  );
+  assert.equal((await create(published.slug)).slug, published.slug + '-3');
 });
 
 test('migration from schema 2 preserves leads, attachments and legacy settings while using fixed upload limits', () => {
